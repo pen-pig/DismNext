@@ -898,7 +898,7 @@ Besonderen Dank an franz@drwindows.de
     <String Target="隐藏Internet Explorer右上角的笑脸反馈按钮（by IT之家）" Link="Feedback Smilie im Internet Explorer ausblenden (by ITHome)"/>
 
     <!--Microsoft Edge-->
-    <String Target="阻止Microsoft Edge“首次运行”欢迎页面（by IT之家）" Link="Startbildschirm von Microsoft Edge beim ersten Start verhindern" (by ITHome)"/>
+    <String Target="阻止Microsoft Edge“首次运行”欢迎页面（by IT之家）" Link="Startbildschirm von Microsoft Edge beim ersten Start verhindern (by ITHome)"/>
 
     <String Target="关闭Adobe Flash即点即用" Link="Adobe Flash mit Rechtsklick deaktivieren"/>
       <String Target="此选项将降低计算机安全性，增加Adobe Flash的安全隐患！" Link="Diese Option verringert die Sicherheitseinstellungen des PC."/>
