@@ -21,7 +21,7 @@ namespace DismPlusNext.ViewModels
         public ModuleEntry SelectedModule
         {
             get => _selectedModule;
-            set { if (Set(ref _selectedModule, value)) { OnChanged(nameof(IsRecoveryModule)); OnChanged(nameof(ExecuteButtonText)); } }
+            set { if (Set(ref _selectedModule, value)) { OnChanged(nameof(IsRecoveryModule)); OnChanged(nameof(ExecuteButtonText)); OnChanged(nameof(ShowRestoreDefaults)); } }
         }
 
         private ItemEntry _selectedItem;
@@ -42,10 +42,12 @@ namespace DismPlusNext.ViewModels
 
         public bool IsRecoveryModule => SelectedModule?.IsRecovery == true;
         public string ExecuteButtonText => IsRecoveryModule ? "清理选中" : "应用选中";
+        public bool ShowRestoreDefaults => SelectedModule != null && !IsRecoveryModule;
 
         public RelayCommand ScanCommand { get; }
         public RelayCommand ExecuteCommand { get; }
         public RelayCommand RefreshCommand { get; }
+        public RelayCommand RestoreDefaultsCommand { get; }
 
         /// <summary>窗口注入的确认回调（用于破坏性操作前的二次确认）。</summary>
         public Func<string, bool> RequestConfirm { get; set; }
@@ -55,6 +57,7 @@ namespace DismPlusNext.ViewModels
             ScanCommand = new RelayCommand(Scan, () => !IsBusy && SelectedModule != null);
             ExecuteCommand = new RelayCommand(Execute, () => !IsBusy && SelectedModule != null);
             RefreshCommand = new RelayCommand(() => Reload());
+            RestoreDefaultsCommand = new RelayCommand(RestoreDefaults, () => !IsBusy && SelectedModule != null && !IsRecoveryModule);
         }
 
         public void Init()
@@ -172,6 +175,36 @@ namespace DismPlusNext.ViewModels
             Log($"===== {verb}结束：成功 {ok} / 失败 {fail} =====");
             IsBusy = false;
             // 重新扫描以刷新状态
+            Scan();
+        }
+
+        private void RestoreDefaults()
+        {
+            if (SelectedModule == null) return;
+            var targets = SelectedModule.Items.Where(e => e.IsChecked && e.IsApplicable && e.IsOptimization).ToList();
+            if (targets.Count == 0) { Log("未选择任何优化项。"); return; }
+            if (RequestConfirm != null && !RequestConfirm($"将把选中的 {targets.Count} 个优化项重置为软件推荐状态（Combo 选推荐项、开关恢复开启），确认继续？"))
+            { Log("已取消。"); return; }
+
+            IsBusy = true;
+            Log($"===== 批量恢复默认（{targets.Count} 项）=====");
+            int ok = 0, fail = 0;
+            foreach (var e in targets)
+            {
+                Log($"-- {e.DisplayName} --");
+                var opt = new ApplyOptions { ComboIndex = e.IsCombo ? -1 : 0, IsOn = true };
+                try
+                {
+                    var res = _engine.ApplyItem(e.Rule, s => Log("  " + s), opt);
+                    ok += res.Count(r => r.Success);
+                    fail += res.Count(r => !r.Success);
+                    if (e.IsCombo) e.ComboIndex = e.Rule.DefaultOptionIndex >= 0 ? e.Rule.DefaultOptionIndex : 0;
+                    e.Status = $"已恢复默认（成功 {res.Count(r => r.Success)} / 失败 {res.Count(r => !r.Success)}）";
+                }
+                catch (Exception ex) { fail++; e.Status = "执行异常：" + ex.Message; Log("  异常：" + ex.Message); }
+            }
+            Log($"===== 完成：成功 {ok} / 失败 {fail} =====");
+            IsBusy = false;
             Scan();
         }
 

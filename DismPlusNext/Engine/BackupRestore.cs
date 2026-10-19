@@ -77,7 +77,6 @@ namespace DismPlusNext.Engine
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    Verb = "runas",
                 };
                 using var p = Process.Start(psi);
                 if (p == null) return (false, "无法启动 dism.exe（可能缺少管理员权限）");

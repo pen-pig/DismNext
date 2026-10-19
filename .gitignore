@@ -27,3 +27,5 @@ obj/
 .workbuddy/
 # 一键编译脚本产物（发布目录）
 publish/
+# 兼容性报告临时产物
+CompatReport_*.md

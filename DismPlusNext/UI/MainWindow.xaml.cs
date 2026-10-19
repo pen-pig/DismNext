@@ -15,5 +15,11 @@ namespace DismPlusNext.UI
                 MessageBox.Show(msg, "Dism-Plus-Next", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
             Loaded += (s, e) => _vm.Init();
         }
+
+        private void OpenBackup(object sender, RoutedEventArgs e)
+        {
+            var w = new BackupWindow { Owner = this };
+            w.ShowDialog();
+        }
     }
 }

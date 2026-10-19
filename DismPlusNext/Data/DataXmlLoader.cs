@@ -127,14 +127,23 @@ namespace DismPlusNext.Data
             {
                 foreach (var dd in def.Elements("Dropdown"))
                 {
-                    var acts = ParseActivate(dd.Element("Activate"));
-                    if (acts.Count > 0 && item.DefaultActivate.Count == 0)
-                        item.DefaultActivate = acts;
+                    var dacts = ParseActivate(dd.Element("Activate"));
+                    if (dacts.Count > 0 && item.DefaultActivate.Count == 0)
+                        item.DefaultActivate = dacts;
                 }
             }
             // 若没有 Default，则用 Current 首个选项的动作为默认
             if (item.DefaultActivate.Count == 0 && item.Options.Count > 0)
                 item.DefaultActivate = item.Options[0].Activate;
+            // 计算默认选项索引（用于"恢复默认"UI）：将 Default 动作签名与各选项匹配
+            if (item.Options.Count > 0)
+            {
+                var sig = ActivateSignature(item.DefaultActivate);
+                int idx = -1;
+                for (int i = 0; i < item.Options.Count; i++)
+                    if (ActivateSignature(item.Options[i].Activate) == sig) { idx = i; break; }
+                item.DefaultOptionIndex = idx >= 0 ? idx : 0;
+            }
             // 系统开关型（<System>）：True/False 各含一组 Activate
             var sys = itemEl.Element("System");
             if (sys != null)
@@ -143,6 +152,24 @@ namespace DismPlusNext.Data
                 var f = sys.Element("False"); if (f != null) item.SystemFalseActivate = ParseActivate(f.Element("Activate"));
             }
             return item;
+        }
+
+        /// <summary>生成动作序列的签名（用于匹配 Combo 项的推荐默认选项）。</summary>
+        private static string ActivateSignature(List<ActionBase> srcActions)
+        {
+            var segs = new List<string>();
+            foreach (var itm in srcActions)
+            {
+                if (itm is ActRegWrite aw) segs.Add($"RW|{aw.Key}|{aw.Value}|{aw.Type}|{aw.Data}");
+                else if (itm is ActRegDelete ad) segs.Add($"RD|{ad.Key}|{ad.Value}");
+                else if (itm is ActRegMove am) segs.Add($"RM|{am.From}|{am.To}");
+                else if (itm is ActSetServiceStart ass) segs.Add($"SS|{ass.Service}|{ass.Start}");
+                else if (itm is ActGeneral ag) segs.Add($"GN|{ag.RootPath}|{ag.Flags}|{string.Join(",", ag.Query)}");
+                else if (itm is ActCustom ac) segs.Add($"CU|{ac.ProcName}|{ac.Flags}");
+                else if (itm is ActExplorerNotify ae) segs.Add($"EN|{ae.Value}");
+                else segs.Add("??");
+            }
+            return string.Join(";", segs);
         }
 
         private Applicable ParseApplicable(XElement applEl)

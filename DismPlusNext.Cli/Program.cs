@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using DismPlusNext;
 using DismPlusNext.Engine;
 using DismPlusNext.Models;
@@ -50,6 +51,7 @@ namespace DismPlusNext.Cli
                 case "backup": return CmdBackup(rest);
                 case "restore": return CmdRestore(rest, yes);
                 case "images": return CmdImages(rest.FirstOrDefault());
+                case "report": return CmdReport(eng, rest.FirstOrDefault());
                 default: PrintUsage(); return 1;
             }
         }
@@ -151,6 +153,36 @@ namespace DismPlusNext.Cli
             return 0;
         }
 
+        static int CmdReport(CleanEngine eng, string outPath)
+        {
+            var r = eng.GetCompatReport();
+            if (string.IsNullOrEmpty(outPath))
+                outPath = $"CompatReport_{r.DetectedVersion.Replace('.', '_')}.md";
+            var sb = new StringBuilder();
+            sb.AppendLine("# Dism-Plus-Next 系统兼容性报告");
+            sb.AppendLine();
+            sb.AppendLine($"- 检测时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"- 真实 OS 版本：**{r.DetectedVersion}**（RtlGetVersion）");
+            sb.AppendLine($"- .NET 报告版本：{r.ReportedVersion}（Environment.OSVersion）");
+            sb.AppendLine($"- 总条目：{r.TotalItems} · 适用：{r.ApplicableItems} · 因系统版本/架构排除：{r.OsExcludedCount}");
+            sb.AppendLine();
+            foreach (var c in r.Collections)
+            {
+                sb.AppendLine($"## {c.Name}（`{c.Kind}`）");
+                sb.AppendLine($"- 条目 {c.Total} · 适用 {c.Applicable} · 因系统版本排除 {c.OsExcluded.Count}");
+                if (c.OsExcluded.Count > 0)
+                {
+                    sb.AppendLine("- 因 OSVersion/Arch 不适用：");
+                    foreach (var n in c.OsExcluded) sb.AppendLine($"  - {n}");
+                }
+                sb.AppendLine();
+            }
+            File.WriteAllText(outPath, sb.ToString());
+            Console.WriteLine($"报告已生成：{outPath}");
+            Console.WriteLine($"真实版本 {r.DetectedVersion} · 适用 {r.ApplicableItems}/{r.TotalItems} · 排除 {r.OsExcludedCount}");
+            return 0;
+        }
+
         static void PrintUsage()
         {
             Console.WriteLine("Dism-Plus-Next CLI");
@@ -160,6 +192,7 @@ namespace DismPlusNext.Cli
             Console.WriteLine("  backup  <image.wim> [-d C:\\] [-n 名称]");
             Console.WriteLine("  restore <image.wim> [-i 1] [-d C:\\] --yes");
             Console.WriteLine("  images  <image.wim>");
+            Console.WriteLine("  report  [输出md路径]   生成 Win10/11 兼容性报告");
         }
 
         static string FindRepoRoot()

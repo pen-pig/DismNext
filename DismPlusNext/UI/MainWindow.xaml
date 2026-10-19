@@ -48,6 +48,7 @@
                     <TextBlock Text="语言：" VerticalAlignment="Center" Foreground="{StaticResource FgMutedBrush}"/>
                     <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" Width="120" Margin="4,0"/>
                     <Button Content="刷新" Command="{Binding RefreshCommand}" Padding="10,4"/>
+                    <Button Content="备份还原" Click="OpenBackup" Padding="10,4" Margin="4,0,0,0"/>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -71,6 +72,9 @@
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
                     <Button Content="扫描" Command="{Binding ScanCommand}" FontWeight="Bold"/>
                     <Button Content="{Binding ExecuteButtonText}" Command="{Binding ExecuteCommand}" FontWeight="Bold" Background="{StaticResource AccentBrush}" BorderBrush="{StaticResource AccentBrush}"/>
+                    <Button Content="恢复默认" Command="{Binding RestoreDefaultsCommand}"
+                            Visibility="{Binding ShowRestoreDefaults, Converter={x:Static local:Converters.BoolToVisibility}}"
+                            FontWeight="Bold" Margin="4,0,0,0"/>
                     <TextBlock Text="{Binding TotalFoundText}" VerticalAlignment="Center" Margin="12,0" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Foreground="{StaticResource FgMutedBrush}" Margin="8,0"/>
                 </StackPanel>

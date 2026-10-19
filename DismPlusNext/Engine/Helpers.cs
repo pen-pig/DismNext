@@ -54,6 +54,39 @@ namespace DismPlusNext.Engine
             return a.ToString();
         }
 
+        // ---- 真实 OS 版本探测（不受 app.manifest 兼容性限制）----
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RtlOsVersionInfo
+        {
+            public int dwOSVersionInfoSize;
+            public int dwMajorVersion;
+            public int dwMinorVersion;
+            public int dwBuildNumber;
+            public int dwPlatformId;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+            public string szCSDVersion;
+        }
+
+        [DllImport("ntdll.dll", CharSet = CharSet.Unicode)]
+        private static extern int RtlGetVersion(ref RtlOsVersionInfo lpVersionInformation);
+
+        /// <summary>
+        /// 返回真实 Windows 版本（RtlGetVersion，始终返回内核真实版本，不受清单兼容性影响）。
+        /// .NET 的 Environment.OSVersion 在无 supportedOS 清单时会被压成 6.2，
+        /// 导致 Win10/11 的 OSVersion 条件误判为不适用。本方法修复该问题。
+        /// </summary>
+        public static Version GetOsVersion()
+        {
+            try
+            {
+                var info = new RtlOsVersionInfo { dwOSVersionInfoSize = Marshal.SizeOf<RtlOsVersionInfo>() };
+                if (RtlGetVersion(ref info) == 0)
+                    return new Version(info.dwMajorVersion, info.dwMinorVersion, info.dwBuildNumber);
+            }
+            catch { }
+            return Environment.OSVersion.Version;
+        }
+
         public static bool CompareVersions(string op, string left, string right)
         {
             if (!Version.TryParse(left, out Version l)) Version.TryParse(left + ".0", out l);

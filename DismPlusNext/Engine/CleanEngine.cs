@@ -96,5 +96,65 @@ namespace DismPlusNext
                 return item.Options[comboIndex].Activate;
             return item.DefaultActivate;
         }
+
+        // ---------- 系统兼容性报告（Win10/11 适配）----------
+        public class CollectionCompat
+        {
+            public string Kind = "";
+            public string Name = "";
+            public int Total;
+            public int Applicable;
+            public List<string> OsExcluded { get; set; } = new List<string>();
+        }
+
+        public class CompatReport
+        {
+            public string DetectedVersion = "";
+            public string ReportedVersion = "";
+            public int TotalItems;
+            public int ApplicableItems;
+            public int OsExcludedCount;
+            public List<CollectionCompat> Collections { get; set; } = new List<CollectionCompat>();
+            public List<string> OsExcludedItems { get; set; } = new List<string>();
+        }
+
+        /// <summary>
+        /// 生成当前系统（Win10/11 等）对各模块条目的兼容性报告：
+        /// 哪些适用、哪些因 OSVersion/Arch 条件被排除。
+        /// </summary>
+        public CompatReport GetCompatReport()
+        {
+            var report = new CompatReport
+            {
+                DetectedVersion = Helpers.GetOsVersion().ToString(),
+                ReportedVersion = Environment.OSVersion.Version.ToString(),
+            };
+            foreach (var coll in Data.Collections)
+            {
+                if (coll.Kind != "CleanCollection4" && coll.Kind != "SystemOptimization") continue;
+                var cc = new CollectionCompat { Kind = coll.Kind, Name = coll.DisplayName };
+                foreach (var it in coll.Items)
+                {
+                    cc.Total++; report.TotalItems++;
+                    if (IsApplicable(it)) { cc.Applicable++; report.ApplicableItems++; continue; }
+                    // 不适用：检查是否由 OSVersion/Arch 条件导致
+                    bool osExcluded = false;
+                    foreach (var s in it.Scans)
+                    {
+                        var (ok, reasons) = ConditionEvaluator.EvaluateWithReasons(s.Applicable);
+                        if (!ok && reasons.Exists(r => r.Contains("OSVersion") || r.Contains("架构")))
+                        { osExcluded = true; break; }
+                    }
+                    if (osExcluded)
+                    {
+                        cc.OsExcluded.Add(it.DisplayName);
+                        report.OsExcludedItems.Add($"{coll.DisplayName} / {it.DisplayName}");
+                    }
+                }
+                report.Collections.Add(cc);
+            }
+            report.OsExcludedCount = report.OsExcludedItems.Count;
+            return report;
+        }
     }
 }

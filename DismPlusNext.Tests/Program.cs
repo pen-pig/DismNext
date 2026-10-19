@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DismPlusNext;
+using DismPlusNext.Engine;
 using DismPlusNext.Models;
 
 class Program
@@ -50,6 +51,7 @@ class Program
         Console.WriteLine($"  该项的预览操作数: {res.Count}");
 
         RunApplyOptionsTests();
+        RunCompatTests();
         Console.WriteLine("\n无头逻辑验证完成。");
     }
 
@@ -82,6 +84,45 @@ class Program
         Check("开关 开 -> Data T", cap.Any(x => x.Contains("= T")), ref pass, ref fail);
         cap = new List<string>(); eng.ApplyItem(sw, s => cap.Add(s), new ApplyOptions { IsOn = false });
         Check("开关 关 -> Data F", cap.Any(x => x.Contains("= F")), ref pass, ref fail);
+
+        Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
+        if (fail > 0) Environment.Exit(1);
+    }
+
+    /// <summary>回归测试：Win10/11 真实版本探测 + DefaultOptionIndex 解析 + 兼容性报告。</summary>
+    static void RunCompatTests()
+    {
+        Console.WriteLine("\n===== Win10/11 兼容性回归测试 =====");
+        int pass = 0, fail = 0;
+
+        var ver = Helpers.GetOsVersion();
+        Check($"真实 OS 版本 >= 10.0 (实际 {ver})", ver.Major >= 10, ref pass, ref fail);
+
+        string dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 7; i++)
+        {
+            if (File.Exists(Path.Combine(dir, "Data.xml"))) break;
+            var p = Directory.GetParent(dir);
+            if (p == null) break;
+            dir = p.FullName;
+        }
+        var eng = new CleanEngine();
+        eng.Initialize(dir);
+
+        int comboTotal = 0, comboResolved = 0;
+        foreach (var it in eng.Data.Collections.SelectMany(c => c.Items))
+        {
+            if (it.Options.Count > 0)
+            {
+                comboTotal++;
+                if (it.DefaultOptionIndex >= 0 && it.DefaultOptionIndex < it.Options.Count) comboResolved++;
+            }
+        }
+        Check($"Combo 项默认索引已解析 ({comboResolved}/{comboTotal})", comboTotal == 0 || comboResolved > 0, ref pass, ref fail);
+
+        var report = eng.GetCompatReport();
+        Check("兼容性报告生成成功", report != null && report.DetectedVersion == ver.ToString(), ref pass, ref fail);
+        Check("报告检测版本与 RtlGetVersion 一致", report.DetectedVersion == ver.ToString(), ref pass, ref fail);
 
         Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
         if (fail > 0) Environment.Exit(1);

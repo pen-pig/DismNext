@@ -14,6 +14,8 @@ namespace DismPlusNext.ViewModels
         {
             Rule = rule;
             foreach (var o in rule.Options) OptionNames.Add(o.Name);
+            if (rule.Options.Count > 0)
+                _comboIndex = rule.DefaultOptionIndex >= 0 ? rule.DefaultOptionIndex : 0;
         }
 
         public string DisplayName => Rule.DisplayName;

@@ -38,6 +38,8 @@ namespace DismPlusNext.Models
         public List<ActionBase> SystemTrueActivate { get; set; } = new List<ActionBase>();
         /// <summary>系统开关型关闭时执行的动作（False 分支的 Activate）。</summary>
         public List<ActionBase> SystemFalseActivate { get; set; } = new List<ActionBase>();
+        /// <summary>该 Combo 项在 Data.xml 中 &lt;Default&gt; 指定的推荐选项索引；用于"恢复默认"。</summary>
+        public int DefaultOptionIndex { get; set; } = -1;
         public bool HasScans => Scans.Count > 0;
         public bool IsCombo => Options.Count > 0;
     }
