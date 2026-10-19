@@ -18,3 +18,10 @@ chuyu-analysis/config.php
 /.vs
 /www.chuyu.me/de/index.html
 /www.chuyu.me/MakeWeb.cmd
+
+# .NET build output (Dism-Plus-Next)
+bin/
+obj/
+.vs/
+*.user
+.workbuddy/

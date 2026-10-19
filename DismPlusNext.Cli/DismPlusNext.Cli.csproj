@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>DismPlusNext.Cli</AssemblyName>
+    <RootNamespace>DismPlusNext.Cli</RootNamespace>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DismPlusNext\DismPlusNext.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Data.xml" Link="Data.xml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Languages\**\*" Link="Languages\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
