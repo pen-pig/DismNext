@@ -25,3 +25,5 @@ obj/
 .vs/
 *.user
 .workbuddy/
+# 一键编译脚本产物（发布目录）
+publish/

@@ -10,12 +10,26 @@ namespace DismPlusNext.ViewModels
     {
         public RuleItem Rule { get; }
 
-        public ItemEntry(RuleItem rule) { Rule = rule; }
+        public ItemEntry(RuleItem rule)
+        {
+            Rule = rule;
+            foreach (var o in rule.Options) OptionNames.Add(o.Name);
+        }
 
         public string DisplayName => Rule.DisplayName;
         public string Group => Rule.Group;
         public string Description => Rule.Description;
         public string Warning => Rule.Warning;
+
+        /// <summary>是否为 Combo（下拉多选一）型优化项。</summary>
+        public bool IsCombo => Rule.Options.Count > 0;
+        /// <summary>是否为开关型（True/False）优化项。</summary>
+        public bool IsSystemSwitch => Rule.SystemTrueActivate.Count > 0 || Rule.SystemFalseActivate.Count > 0;
+        /// <summary>Combo 选项名称列表（本地化后）。</summary>
+        public ObservableCollection<string> OptionNames { get; } = new ObservableCollection<string>();
+        /// <summary>用户选中的 Combo 选项索引；-1 表示使用推荐默认。</summary>
+        private int _comboIndex = -1;
+        public int ComboIndex { get => _comboIndex; set => Set(ref _comboIndex, value); }
 
         private static bool HasRegAction(IEnumerable<ActionBase> acts)
             => acts.Any(a => a is ActRegWrite || a is ActRegDelete || a is ActRegMove || a is ActSetServiceStart);

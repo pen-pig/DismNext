@@ -29,6 +29,9 @@
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding Status}" Foreground="{StaticResource FgMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                    <ComboBox ItemsSource="{Binding OptionNames}" SelectedIndex="{Binding ComboIndex, Mode=TwoWay}"
+                              Visibility="{Binding IsCombo, Converter={x:Static local:Converters.BoolToVisibility}}"
+                              Margin="0,3,0,0" Width="220" HorizontalAlignment="Left" FontSize="12"/>
                 </StackPanel>
                 <TextBlock Grid.Column="2" Text="{Binding FoundSizeText}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
             </Grid>

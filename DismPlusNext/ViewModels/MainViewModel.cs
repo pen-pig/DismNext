@@ -88,7 +88,8 @@ namespace DismPlusNext.ViewModels
                 foreach (var it in coll.Items)
                 {
                     var e = new ItemEntry(it) { IsApplicable = _engine.IsApplicable(it) };
-                    if (e.IsApplicable) e.IsChecked = true;
+                    // 空间回收项默认全选（即清理）；系统优化项默认不勾选，需用户主动 opt-in，避免误改系统。
+                    e.IsChecked = e.IsRecovery && e.IsApplicable;
                     mod.Items.Add(e);
                 }
                 Modules.Add(mod);
@@ -117,14 +118,21 @@ namespace DismPlusNext.ViewModels
                 if (!e.IsApplicable) { e.Status = "不适用当前系统"; continue; }
                 try
                 {
-                    var res = _engine.ScanItem(e.Rule, s => Log("  " + s));
+                    var opt = new ApplyOptions { IsOn = e.IsChecked, ComboIndex = e.ComboIndex };
+                    var res = _engine.ScanItem(e.Rule, s => Log("  " + s), opt);
                     foreach (var r in res)
                     {
                         e.FoundTargets.Add(r.Target);
                         e.FoundSize += r.SizeAffected;
                     }
                     total += e.FoundSize;
-                    e.Status = e.FoundTargets.Count > 0 ? $"发现 {e.FoundTargets.Count} 项 · {e.FoundSizeText}" : "无需处理";
+                    int ops = res.Count;
+                    if (e.FoundTargets.Count > 0)
+                        e.Status = $"发现 {e.FoundTargets.Count} 项 · {e.FoundSizeText}";
+                    else if (ops > 0)
+                        e.Status = $"将执行 {ops} 项操作（注册表/服务）";
+                    else
+                        e.Status = "无需处理";
                 }
                 catch (Exception ex) { e.Status = "扫描异常：" + ex.Message; Log("  异常：" + ex.Message); }
             }
@@ -153,7 +161,8 @@ namespace DismPlusNext.ViewModels
                 Log($"-- {e.DisplayName} --");
                 try
                 {
-                    var res = _engine.ApplyItem(e.Rule, s => Log("  " + s));
+                    var opt = new ApplyOptions { IsOn = e.IsChecked, ComboIndex = e.ComboIndex };
+                    var res = _engine.ApplyItem(e.Rule, s => Log("  " + s), opt);
                     ok += res.Count(r => r.Success);
                     fail += res.Count(r => !r.Success);
                     e.Status = $"完成（成功 {res.Count(r => r.Success)} / 失败 {res.Count(r => !r.Success)}）";
