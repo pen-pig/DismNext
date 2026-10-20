@@ -54,7 +54,42 @@ class Program
         RunApplyOptionsTests();
         RunCompatTests();
         RunNativeModuleTests();
+        RunOfflineTests();
         Console.WriteLine("\n无头逻辑验证完成。");
+    }
+
+    /// <summary>回归测试：离线映像上下文的路径重映射与条件门控重定向。</summary>
+    static void RunOfflineTests()
+    {
+        Console.WriteLine("\n===== 离线映像回归测试 =====");
+        int pass = 0, fail = 0;
+
+        string mount = "M:\\img";
+        using var ctx = OfflineContext.CreateForTest(mount, new Version(10, 0, 19041));
+
+        Check("Remap C:\\Windows\\Temp", ctx.RemapFsPath("C:\\Windows\\Temp") == "M:\\img\\Windows\\Temp", ref pass, ref fail);
+        Check("Remap %SystemRoot%", ctx.RemapFsPath("%SystemRoot%\\System32") == "M:\\img\\Windows\\System32", ref pass, ref fail);
+        Check("Remap %SystemDrive%", ctx.RemapFsPath("%SystemDrive%\\Users") == "M:\\img\\Users", ref pass, ref fail);
+        Check("Remap 任意盘符 D:\\x", ctx.RemapFsPath("D:\\x") == "M:\\img\\x", ref pass, ref fail);
+
+        // 离线模式下，ImageFlags(1)=在线专用 应视为适用（不门控）
+        var imgFlags = new Applicable { Conditions = new List<Condition> { new CondImageFlags { Value = "1" } } };
+        Check("离线 CondImageFlags 视为适用", ConditionEvaluator.Evaluate(imgFlags), ref pass, ref fail);
+
+        // 离线 OSVersion 使用映像版本(10.0.19041)
+        var osHigh = new Applicable { Conditions = new List<Condition> { new CondOSVersion { Compare = ">=", Version = "10.0.10240" } } };
+        var osLow = new Applicable { Conditions = new List<Condition> { new CondOSVersion { Compare = "<", Version = "10.0" } } };
+        Check("离线 OSVersion >=10.0.10240 命中", ConditionEvaluator.Evaluate(osHigh), ref pass, ref fail);
+        Check("离线 OSVersion <10.0 不命中", !ConditionEvaluator.Evaluate(osLow), ref pass, ref fail);
+
+        // TargetOsVersion 应返回映像版本而非在线版本
+        Check("TargetOsVersion 返回映像版本", Helpers.TargetOsVersion()?.ToString() == "10.0.19041", ref pass, ref fail);
+
+        ctx.Dispose();
+        Check("离线上下文已清除", OfflineContext.Current == null, ref pass, ref fail);
+
+        Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
+        if (fail > 0) Environment.Exit(1);
     }
 
     /// <summary>回归测试：ApplyItem 必须按用户的 Combo 选项 / 开关选择执行对应分支。</summary>

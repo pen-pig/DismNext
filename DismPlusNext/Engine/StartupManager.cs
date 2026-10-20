@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.Win32;
 
 namespace DismPlusNext.Engine
@@ -19,6 +21,9 @@ namespace DismPlusNext.Engine
         public string ValueName = "";
         public string OriginalPath = "";  // 文件夹项原始完整路径
         public string BackupId = "";      // 注册表项备份子键名 / 文件夹项文件名
+        public bool IsTask;               // true=计划任务
+        public string TaskName = "";      // 计划任务名
+        public string TaskPath = "";      // 计划任务路径（含末尾反斜杠，如 \Microsoft\Windows\）
     }
 
     /// <summary>启动项管理：枚举注册表 Run 键与启动文件夹，支持禁用(备份并删除)/启用(还原)。</summary>
@@ -87,7 +92,67 @@ namespace DismPlusNext.Engine
             }
             // 已禁用的（备份中的）项，供用户重新启用
             list.AddRange(ListDisabled());
+            // 计划任务中"登录/启动"触发且未禁用的项（Dism++ 同样将其纳入启动项管理）
+            list.AddRange(ListScheduledTasks());
             return list;
+        }
+
+        /// <summary>枚举登录/开机触发的计划任务（未禁用），作为启动项来源之一。</summary>
+        public static List<StartupEntry> ListScheduledTasks()
+        {
+            var outp = new List<StartupEntry>();
+            const string ps = "Get-ScheduledTask | ForEach-Object { " +
+                "try { $t = $_; $has = $false; " +
+                "foreach ($tr in $t.Triggers) { $cn = $tr.CimClass.CimClassName; " +
+                "if ($cn -eq 'MSFT_TaskLogonTrigger' -or $cn -eq 'MSFT_TaskBootTrigger') { $has = $true; break } } " +
+                "if (-not $has) { return } " +
+                "$act = $t.Actions | Select-Object -First 1; " +
+                "$cmd = if ($act) { ($act.Execute + ' ' + $act.Arguments).Trim() } else { '' }; " +
+                "$enabled = ($t.State -ne 'Disabled'); " +
+                "\"[TASK]|$($t.TaskName)|$($t.TaskPath)|$([int]$enabled)|$cmd\" } catch { } }";
+            var (ok, text) = RunPs(ps);
+            if (!ok) { Log(null, "枚举计划任务失败：" + text); return outp; }
+            foreach (var raw in text.Split('\n'))
+            {
+                var line = raw.Trim();
+                if (!line.StartsWith("[TASK]|")) continue;
+                var parts = line.Split('|');
+                if (parts.Length < 5) continue;
+                outp.Add(new StartupEntry
+                {
+                    Name = parts[1],
+                    TaskName = parts[1],
+                    TaskPath = parts[2],
+                    Command = parts[4],
+                    Location = "计划任务\\" + parts[2].Trim('\\'),
+                    Enabled = parts[3] == "1",
+                    IsTask = true,
+                });
+            }
+            return outp;
+        }
+
+        private static (bool, string) RunPs(string script)
+        {
+            try
+            {
+                string tmp = Path.Combine(Path.GetTempPath(), "dismnext_st_" + Guid.NewGuid().ToString("N") + ".ps1");
+                File.WriteAllText(tmp, script, Encoding.UTF8);
+                var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -File \"{tmp}\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                using var p = Process.Start(psi);
+                if (p == null) return (false, "无法启动 PowerShell");
+                string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+                p.WaitForExit(120000);
+                try { File.Delete(tmp); } catch { }
+                return (p.ExitCode == 0, o);
+            }
+            catch (Exception ex) { return (false, ex.Message); }
         }
 
         private static List<StartupEntry> ListDisabled()
@@ -143,7 +208,8 @@ namespace DismPlusNext.Engine
             var res = new List<ExecResult>();
             try
             {
-                if (e.IsFolder) ToggleFolder(e, enable, log, res);
+                if (e.IsTask) ToggleTask(e, enable, log, res);
+                else if (e.IsFolder) ToggleFolder(e, enable, log, res);
                 else ToggleReg(e, enable, log, res);
             }
             catch (Exception ex)
@@ -213,6 +279,23 @@ namespace DismPlusNext.Engine
                 File.Move(e.OriginalPath, dest, true);
                 log($"已禁用并备份：{e.Name}");
                 res.Add(new ExecResult { Success = true, Target = e.Name });
+            }
+        }
+
+        private static void ToggleTask(StartupEntry e, bool enable, Action<string> log, List<ExecResult> res)
+        {
+            string verb = enable ? "Enable-ScheduledTask" : "Disable-ScheduledTask";
+            string ps = $"{verb} -TaskName '{e.TaskName.Replace("'", "''")}' -TaskPath '{e.TaskPath.Replace("'", "''")}'";
+            var (ok, text) = RunPs(ps);
+            if (ok)
+            {
+                log($"{(enable ? "已启用" : "已禁用")}计划任务：{e.Name}");
+                res.Add(new ExecResult { Success = true, Target = e.Name });
+            }
+            else
+            {
+                log($"计划任务操作失败：{e.Name} - {text}");
+                res.Add(new ExecResult { Success = false, Target = e.Name, Message = text });
             }
         }
 

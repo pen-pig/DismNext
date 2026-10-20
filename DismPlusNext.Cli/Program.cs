@@ -56,6 +56,7 @@ namespace DismPlusNext.Cli
                 case "startup": return CmdStartup(rest, yes);
                 case "apps": return CmdApps(rest, yes);
                 case "features": return CmdFeatures(rest, yes);
+                case "offline": return CmdOffline(eng, rest, yes);
                 default: PrintUsage(); return 1;
             }
         }
@@ -259,6 +260,94 @@ namespace DismPlusNext.Cli
             return fail > 0 ? 1 : 0;
         }
 
+        static int CmdOffline(CleanEngine eng, List<string> rest, bool yes)
+        {
+            string sub = rest.FirstOrDefault()?.ToLowerInvariant() ?? "help";
+            switch (sub)
+            {
+                case "wiminfo":
+                    {
+                        string wim = rest.ElementAtOrDefault(1);
+                        if (string.IsNullOrEmpty(wim)) { Console.Error.WriteLine("用法: offline wiminfo <image.wim>"); return 2; }
+                        var (ok, idx, outp) = ImageServicing.GetWimInfo(wim);
+                        if (!ok) { Console.Error.WriteLine("读取失败：" + outp); return 1; }
+                        foreach (var i in idx) Console.WriteLine($"  [{i.Index}] {i.Name}  v{i.Version}  {i.Architecture}");
+                        if (idx.Count == 0) Console.WriteLine("（无卷信息）");
+                        return 0;
+                    }
+                case "list":
+                    {
+                        var (ok, outp) = ImageServicing.ListMounted();
+                        Console.WriteLine(ok ? outp : "读取失败：" + outp);
+                        return ok ? 0 : 1;
+                    }
+                case "mount":
+                    {
+                        string wim = rest.ElementAtOrDefault(1), mdir = rest.ElementAtOrDefault(3);
+                        if (!int.TryParse(rest.ElementAtOrDefault(2), out int index)) index = 1;
+                        if (string.IsNullOrEmpty(wim) || string.IsNullOrEmpty(mdir)) { Console.Error.WriteLine("用法: offline mount <image.wim> <index> <mountdir>"); return 2; }
+                        var (ok, outp) = ImageServicing.Mount(wim, index, mdir, false);
+                        if (!ok) { Console.Error.WriteLine("挂载失败：" + outp); return 1; }
+                        var (ok2, msg) = OfflineContext.Create(mdir, true);
+                        if (!ok2) { ImageServicing.Unmount(mdir, false); Console.Error.WriteLine("加载配置单元失败：" + msg); return 1; }
+                        Console.WriteLine($"已挂载并加载配置单元：{mdir}（离线上下文生效）");
+                        return 0;
+                    }
+                case "unmount":
+                    {
+                        string mdir = rest.ElementAtOrDefault(1);
+                        string mode = rest.ElementAtOrDefault(2) ?? "commit";
+                        bool commit = mode != "discard";
+                        if (string.IsNullOrEmpty(mdir)) { Console.Error.WriteLine("用法: offline unmount <mountdir> [commit|discard]"); return 2; }
+                        var (ok, outp) = ImageServicing.Unmount(mdir, commit);
+                        OfflineContext.Current?.Dispose();
+                        Console.WriteLine(ok ? $"已{(commit ? "提交" : "丢弃")}并卸载。" : "卸载失败：" + outp);
+                        return ok ? 0 : 1;
+                    }
+                case "service":
+                    {
+                        string wim = rest.ElementAtOrDefault(1);
+                        string module = rest.ElementAtOrDefault(3) ?? "CleanCollection4";
+                        if (!int.TryParse(rest.ElementAtOrDefault(2), out int index)) index = 1;
+                        string mdir = Path.Combine(Path.GetTempPath(), "DismNextOffline_" + Guid.NewGuid().ToString("N"));
+                        if (string.IsNullOrEmpty(wim)) { Console.Error.WriteLine("用法: offline service <image.wim> <index> <CleanCollection4|SystemOptimization> --yes"); return 2; }
+                        if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                        var (ok, outp) = ImageServicing.Mount(wim, index, mdir, false);
+                        if (!ok) { Console.Error.WriteLine("挂载失败：" + outp); return 1; }
+                        var (ok2, msg) = OfflineContext.Create(mdir, true);
+                        if (!ok2) { ImageServicing.Unmount(mdir, false); Console.Error.WriteLine("加载配置单元失败：" + msg); return 1; }
+                        try
+                        {
+                            var coll = eng.Data.Collections.FirstOrDefault(c => c.Kind == module);
+                            if (coll == null) { Console.Error.WriteLine($"未知模块：{module}"); return 2; }
+                            Console.WriteLine($"对离线映像应用模块：{coll.DisplayName}");
+                            int okc = 0, fail = 0;
+                            foreach (var it in coll.Items)
+                            {
+                                if (!eng.IsApplicable(it)) continue;
+                                var res = eng.ApplyItem(it, s => Console.WriteLine("    " + s));
+                                okc += res.Count(r => r.Success); fail += res.Count(r => !r.Success);
+                            }
+                            Console.WriteLine($"完成：成功 {okc} / 失败 {fail}");
+                        }
+                        finally
+                        {
+                            OfflineContext.Current?.Dispose();
+                            var (uok, uout) = ImageServicing.Unmount(mdir, true);
+                            Console.WriteLine(uok ? "已提交并卸载映像。" : "卸载失败：" + uout);
+                        }
+                        return 0;
+                    }
+                default:
+                    Console.WriteLine("  offline wiminfo <image.wim>");
+                    Console.WriteLine("  offline list");
+                    Console.WriteLine("  offline mount <image.wim> <index> <mountdir>");
+                    Console.WriteLine("  offline unmount <mountdir> [commit|discard]");
+                    Console.WriteLine("  offline service <image.wim> <index> <CleanCollection4|SystemOptimization> --yes");
+                    return 0;
+            }
+        }
+
         static void PrintUsage()
         {
             Console.WriteLine("Dism-Plus-Next CLI");
@@ -273,6 +362,7 @@ namespace DismPlusNext.Cli
             Console.WriteLine("  startup [list|disable|enable <名称>] [--yes]");
             Console.WriteLine("  apps    [list|uninstall <名称>] [--yes]");
             Console.WriteLine("  features[list|enable|disable <名称>] [--yes]");
+            Console.WriteLine("  offline wiminfo|list|mount|unmount|service ...");
         }
 
         static string FindRepoRoot()

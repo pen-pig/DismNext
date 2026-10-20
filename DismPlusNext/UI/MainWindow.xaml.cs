@@ -21,5 +21,11 @@ namespace DismPlusNext.UI
             var w = new BackupWindow { Owner = this };
             w.ShowDialog();
         }
+
+        private void OpenOffline(object sender, RoutedEventArgs e)
+        {
+            var w = new OfflineWindow(_vm) { Owner = this };
+            w.ShowDialog();
+        }
     }
 }

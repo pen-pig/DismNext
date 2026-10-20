@@ -44,10 +44,16 @@ namespace DismPlusNext.ViewModels
         public string ExecuteButtonText => IsRecoveryModule ? "清理选中" : "应用选中";
         public bool ShowRestoreDefaults => SelectedModule?.IsOptimization == true;
 
+        /// <summary>是否处于离线映像服务模式（挂载了 WIM/ESD 并加载其配置单元）。</summary>
+        public bool IsOffline => OfflineContext.Current != null;
+        /// <summary>当前离线映像的挂载路径（用于状态横幅展示）。</summary>
+        public string OfflineText => OfflineContext.Current?.MountDir ?? "";
+
         public RelayCommand ScanCommand { get; }
         public RelayCommand ExecuteCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand RestoreDefaultsCommand { get; }
+        public RelayCommand UnmountOfflineCommand { get; }
 
         /// <summary>窗口注入的确认回调（用于破坏性操作前的二次确认）。</summary>
         public Func<string, bool> RequestConfirm { get; set; }
@@ -58,6 +64,37 @@ namespace DismPlusNext.ViewModels
             ExecuteCommand = new RelayCommand(Execute, () => !IsBusy && SelectedModule != null);
             RefreshCommand = new RelayCommand(() => Reload());
             RestoreDefaultsCommand = new RelayCommand(RestoreDefaults, () => !IsBusy && SelectedModule != null && !IsRecoveryModule);
+            UnmountOfflineCommand = new RelayCommand(UnmountOffline, () => !IsBusy && IsOffline);
+        }
+
+        /// <summary>离线映像挂载成功后由 OfflineWindow 调用：重建模块并重算离线适用性。</summary>
+        public void EnterOffline()
+        {
+            RebuildModules();
+            if (Modules.Count > 0) SelectedModule = Modules[0];
+            OnChanged(nameof(IsOffline));
+            OnChanged(nameof(OfflineText));
+            StatusText = $"已进入离线映像模式：{OfflineText} · 模块 {Modules.Count} 个（清理/优化将作用于挂载映像）";
+        }
+
+        /// <summary>卸载离线映像并提交更改，退出离线模式。</summary>
+        private void UnmountOffline()
+        {
+            if (OfflineContext.Current == null) return;
+            var ctx = OfflineContext.Current;
+            string mountDir = ctx.MountDir;
+            if (RequestConfirm != null && !RequestConfirm($"将卸载离线映像并提交更改：{mountDir}，确认继续？")) { Log("已取消卸载。"); return; }
+            IsBusy = true;
+            Log($"===== 卸载离线映像：{mountDir} =====");
+            var (ok, outp) = ImageServicing.Unmount(mountDir, true);
+            Log(ok ? "已提交并卸载。" : "卸载失败：" + outp);
+            ctx.Dispose();
+            RebuildModules();
+            if (Modules.Count > 0) SelectedModule = Modules[0];
+            OnChanged(nameof(IsOffline));
+            OnChanged(nameof(OfflineText));
+            StatusText = ok ? "已退出离线映像模式。" : "离线映像卸载失败，请手动处理。";
+            IsBusy = false;
         }
 
         public void Init()

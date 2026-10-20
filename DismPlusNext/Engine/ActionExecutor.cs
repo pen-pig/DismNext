@@ -121,8 +121,7 @@ namespace DismPlusNext.Engine
         // ---------------- 注册表 ----------------
         private static List<ExecResult> DoRegWrite(ActRegWrite w, bool apply, Action<string> log)
         {
-            string path = Helpers.ExpandVars(w.Key);
-            var hive = Helpers.HiveFromPath(path, out string sub);
+            string path = w.Key;
             var r = new ExecResult { Target = $"{path}\\{w.Value}" };
             if (!apply)
             {
@@ -131,7 +130,8 @@ namespace DismPlusNext.Engine
             }
             try
             {
-                using var key = hive.CreateSubKey(sub, true);
+                using var key = Helpers.OpenRegKey(path, true);
+                if (key == null) { log($"注册表键不存在（离线配置单元未加载？）：{path}"); r.Success = false; r.Message = "键不存在"; return new List<ExecResult> { r }; }
                 key.SetValue(w.Value, ConvertRegValue(w.Type, w.Data), RegKind(w.Type));
                 log($"已写入注册表：{path}\\{w.Value} = {w.Data}");
                 r.Success = true;
@@ -142,8 +142,7 @@ namespace DismPlusNext.Engine
 
         private static List<ExecResult> DoRegDelete(ActRegDelete d, bool apply, Action<string> log)
         {
-            string path = Helpers.ExpandVars(d.Key);
-            var hive = Helpers.HiveFromPath(path, out string sub);
+            string path = d.Key;
             var r = new ExecResult { Target = $"{path}\\{d.Value}" };
             if (!apply)
             {
@@ -154,13 +153,19 @@ namespace DismPlusNext.Engine
             {
                 if (string.IsNullOrEmpty(d.Value))
                 {
-                    hive.DeleteSubKeyTree(sub, false);
+                    using (var key = Helpers.OpenRegKey(path, true))
+                    {
+                        if (key == null) { log($"注册表项不存在：{path}"); r.Success = false; r.Message = "键不存在"; return new List<ExecResult> { r }; }
+                    }
+                    // DeleteSubKeyTree 需要父键；用 RegDelete 递归删除：通过 OpenRegKey 取得后删除
+                    DeleteRegTree(path);
                     log($"已删除注册表项：{path}");
                 }
                 else
                 {
-                    using var key = hive.OpenSubKey(sub, true);
-                    key?.DeleteValue(d.Value, false);
+                    using var key = Helpers.OpenRegKey(path, true);
+                    if (key == null) { log($"注册表键不存在：{path}"); r.Success = false; r.Message = "键不存在"; return new List<ExecResult> { r }; }
+                    key.DeleteValue(d.Value, false);
                     log($"已删除注册表值：{path}\\{d.Value}");
                 }
                 r.Success = true;
@@ -175,8 +180,8 @@ namespace DismPlusNext.Engine
             if (!apply) { log($"将移动注册表：{m.From} -> {m.To}"); r.Success = true; return new List<ExecResult> { r }; }
             try
             {
-                CopyKey(Helpers.ExpandVars(m.From), Helpers.ExpandVars(m.To));
-                DeleteKey(Helpers.ExpandVars(m.From));
+                CopyKey(m.From, m.To);
+                DeleteRegTree(m.From);
                 log($"已移动注册表：{m.From} -> {m.To}");
                 r.Success = true;
             }
@@ -184,28 +189,39 @@ namespace DismPlusNext.Engine
             return new List<ExecResult> { r };
         }
 
+        private static void DeleteRegTree(string fullPath)
+        {
+            int idx = fullPath.LastIndexOf('\\');
+            if (idx < 0) return;
+            string parent = fullPath.Substring(0, idx);
+            string child = fullPath.Substring(idx + 1);
+            using var pkey = Helpers.OpenRegKey(parent, true);
+            try { pkey?.DeleteSubKeyTree(child, false); } catch { }
+        }
+
         private static void CopyKey(string from, string to)
         {
-            var fh = Helpers.HiveFromPath(from, out string fsub);
-            var th = Helpers.HiveFromPath(to, out string tsub);
-            using var src = fh.OpenSubKey(fsub, false);
+            using var src = Helpers.OpenRegKey(from, false);
             if (src == null) return;
-            using var dst = th.CreateSubKey(tsub, true);
+            using var dst = Helpers.OpenRegKey(to, true);
+            if (dst == null) return;
             foreach (var v in src.GetValueNames())
                 dst.SetValue(v, src.GetValue(v), src.GetValueKind(v));
             foreach (var sk in src.GetSubKeyNames())
                 CopyKey(from.TrimEnd('\\') + "\\" + sk, to.TrimEnd('\\') + "\\" + sk);
-        }
-        private static void DeleteKey(string path)
-        {
-            var h = Helpers.HiveFromPath(path, out string sub);
-            try { h.DeleteSubKeyTree(sub, false); } catch { }
         }
 
         // ---------------- 自定义过程（Dism++ 内部例程的开源等效实现） ----------------
         private static List<ExecResult> DoCustom(ActCustom c, bool apply, Action<string> log)
         {
             var r = new ExecResult { Target = c.ProcName };
+            // 离线映像模式：自定义过程多为面向"在线系统"的命令（dism /Online、compact.exe、
+            // PowerShell 在线清理等），无法直接作用于挂载映像，安全跳过并提示。
+            if (OfflineContext.Current != null)
+            {
+                log($"离线模式下跳过在线专属命令 {c.ProcName}（需针对在线系统执行）。");
+                r.Success = true; return new List<ExecResult> { r };
+            }
             bool reset = c.Flags == "#1";
 
             // 标准命令行过程
@@ -288,7 +304,7 @@ namespace DismPlusNext.Engine
             if (!apply) { log($"将设置服务 {s.Service} 启动类型为 {s.Start} (注册表 {key})"); r.Success = true; return new List<ExecResult> { r }; }
             try
             {
-                using var k = Registry.LocalMachine.OpenSubKey($"SYSTEM\\CurrentControlSet\\Services\\{s.Service}", true);
+                using var k = Helpers.OpenRegKey($"HKLM\\SYSTEM\\CurrentControlSet\\Services\\{s.Service}", true);
                 if (k != null) { k.SetValue("Start", int.Parse(s.Start), RegistryValueKind.DWord); log($"已设置服务 {s.Service} 启动类型={s.Start}"); r.Success = true; }
                 else log($"服务不存在：{s.Service}");
             }

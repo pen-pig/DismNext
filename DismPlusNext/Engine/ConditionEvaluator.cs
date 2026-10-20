@@ -39,6 +39,9 @@ namespace DismPlusNext.Engine
                     }
                 case CondImageFlags x:
                     {
+                        // 离线映像模式：不以此门控（挂载的 install 映像等价于在线系统，
+                        // 绝大多数清理/优化项在离线模式下同样适用）。在线模式保持原语义。
+                        if (OfflineContext.Current != null) return true;
                         bool ok = x.Value == "1";
                         if (!ok) reasons?.Add("映像标志不符（要求在线系统）");
                         return ok;
@@ -51,9 +54,9 @@ namespace DismPlusNext.Engine
                     }
                 case CondOSVersion x:
                     {
-                        var ver = Helpers.GetOsVersion();
-                        bool ok = Helpers.CompareVersions(x.Compare, ver.ToString(), x.Version);
-                        if (!ok) reasons?.Add($"OSVersion 不满足：本机 {ver} 不满足 {x.Compare} {x.Version}");
+                        var ver = Helpers.TargetOsVersion();
+                        bool ok = ver != null && Helpers.CompareVersions(x.Compare, ver.ToString(), x.Version);
+                        if (!ok) reasons?.Add($"OSVersion 不满足：目标 {ver} 不满足 {x.Compare} {x.Version}");
                         return ok;
                     }
                 case CondArch x:

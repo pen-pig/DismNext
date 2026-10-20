@@ -52,8 +52,20 @@
                     <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" Width="120" Margin="4,0"/>
                     <Button Content="刷新" Command="{Binding RefreshCommand}" Padding="10,4"/>
                     <Button Content="备份还原" Click="OpenBackup" Padding="10,4" Margin="4,0,0,0"/>
+                    <Button Content="离线映像服务" Click="OpenOffline" Padding="10,4" Margin="4,0,0,0"/>
+                    <Button Content="卸载映像" Command="{Binding UnmountOfflineCommand}" Padding="10,4" Margin="4,0,0,0"
+                            Visibility="{Binding IsOffline, Converter={x:Static local:Converters.BoolToVisibility}}"/>
                 </StackPanel>
             </DockPanel>
+        </Border>
+
+        <!-- 离线映像模式横幅 -->
+        <Border DockPanel.Dock="Top" Background="#2E4A2E" Padding="8,4" Visibility="{Binding IsOffline, Converter={x:Static local:Converters.BoolToVisibility}}">
+            <TextBlock Foreground="#C8F0C8" FontSize="12">
+                <Run Text="⛁ 离线映像模式："/>
+                <Run Text="{Binding OfflineText}"/>
+                <Run Text="　（空间回收 / 系统优化 将作用于该映像，完成后请『卸载映像』提交）"/>
+            </TextBlock>
         </Border>
 
         <!-- 主体三栏 -->

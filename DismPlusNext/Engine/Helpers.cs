@@ -8,14 +8,26 @@ namespace DismPlusNext.Engine
     /// <summary>Windows 系统相关的辅助方法（环境变量展开、注册表访问）。</summary>
     public static class Helpers
     {
-        /// <summary>展开 %VAR% 与 Dism++ 专用的 %0%（程序目录）。</summary>
+        /// <summary>展开 %VAR% 与 Dism++ 专用的 %0%（程序目录）。离线映像模式下重定向到挂载根。</summary>
         public static string ExpandVars(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? "";
+            if (OfflineContext.Current != null) return OfflineContext.Current.RemapFsPath(s);
             s = s.Replace("%0%", AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar));
             s = Environment.ExpandEnvironmentVariables(s);
             return s;
         }
+
+        /// <summary>按完整注册表路径打开子键（离线模式下重定向到离线配置单元）。</summary>
+        public static RegistryKey OpenRegKey(string fullPath, bool writable)
+        {
+            if (OfflineContext.Current != null) return OfflineContext.Current.OpenReg(fullPath, writable);
+            var hive = HiveFromPath(fullPath, out string sub);
+            return hive.OpenSubKey(sub, writable);
+        }
+
+        /// <summary>用于条件评估与目标判断的系统版本：离线模式下取映像版本。</summary>
+        public static Version TargetOsVersion() => OfflineContext.Current?.ImageVersion ?? GetOsVersion();
 
         public static RegistryKey HiveFromPath(string path, out string subPath)
         {
@@ -33,12 +45,11 @@ namespace DismPlusNext.Engine
             return Registry.LocalMachine;
         }
 
-        /// <summary>判断注册表键(及可选值)是否存在。</summary>
+        /// <summary>判断注册表键(及可选值)是否存在（离线模式下查离线配置单元）。</summary>
         public static bool RegExists(string keyPath, string valueName)
         {
             if (string.IsNullOrEmpty(keyPath)) return false;
-            var hive = HiveFromPath(keyPath, out string sub);
-            using var key = hive.OpenSubKey(sub);
+            using var key = OpenRegKey(keyPath, false);
             if (key == null) return false;
             if (string.IsNullOrEmpty(valueName)) return true;
             return key.GetValue(valueName) != null;
