@@ -230,6 +230,21 @@ class Program
         var hm = NativeModules.BuildHosts();
         Check("BuildHosts 为原生模块", hm.IsNative, ref pass, ref fail);
 
+        // 新增工具箱模块：驱动/账户/文件关联
+        var drvs = DriverManager.List();
+        Check($"驱动枚举不抛异常 ({drvs.Count})", drvs != null, ref pass, ref fail);
+        var accts = AccountManager.List();
+        Check($"账户枚举不抛异常 ({accts.Count})", accts != null && accts.All(a => !string.IsNullOrEmpty(a.Name)), ref pass, ref fail);
+        var fass = FileAssociationManager.List();
+        Check($"文件关联枚举不抛异常 ({fass.Count})", fass != null && fass.Count > 0, ref pass, ref fail);
+
+        var dm = NativeModules.BuildDrivers();
+        Check("BuildDrivers 为原生模块", dm.IsNative, ref pass, ref fail);
+        var am = NativeModules.BuildAccounts();
+        Check("BuildAccounts 为原生模块", am.IsNative, ref pass, ref fail);
+        var fm = NativeModules.BuildFileAssoc();
+        Check("BuildFileAssoc 条目均为只读信息", fm.IsNative && fm.ReloadFunc().All(i => i.IsInfo), ref pass, ref fail);
+
         // Win11 专属优化项已写入 Data.xml 并被加载器解析为开关型
         string dir = AppContext.BaseDirectory;
         for (int i = 0; i < 7; i++)

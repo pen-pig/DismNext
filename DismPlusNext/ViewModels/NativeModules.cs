@@ -133,5 +133,56 @@ namespace DismPlusNext.ViewModels
                 .ToList();
             return mod;
         }
+
+        public static ModuleEntry BuildDrivers()
+        {
+            var mod = new ModuleEntry { Kind = "Drivers", DisplayName = "驱动管理", IsNative = true };
+            mod.ReloadFunc = () => DriverManager.List()
+                .Select(d => new ItemEntry(null)
+                {
+                    DisplayName = d.PublishedName,
+                    Description = (string.IsNullOrEmpty(d.ProviderName) ? "" : d.ProviderName + "  ") +
+                        (string.IsNullOrEmpty(d.FileName) ? "" : d.FileName + "  ") +
+                        (string.IsNullOrEmpty(d.Version) ? "" : "v" + d.Version),
+                    Group = string.IsNullOrEmpty(d.ClassName) ? "驱动" : d.ClassName,
+                    State = d.SignerName,
+                    ActionLabel = "删除",
+                    CustomApply = log => DriverManager.Delete(d, log),
+                })
+                .ToList();
+            return mod;
+        }
+
+        public static ModuleEntry BuildAccounts()
+        {
+            var mod = new ModuleEntry { Kind = "Accounts", DisplayName = "账户管理", IsNative = true };
+            mod.ReloadFunc = () => AccountManager.List()
+                .Select(a => new ItemEntry(null)
+                {
+                    DisplayName = a.Name,
+                    Description = (string.IsNullOrEmpty(a.Description) ? "" : a.Description + "  ") + "SID:" + a.Sid,
+                    Group = "上次登录 " + a.LastLogon,
+                    State = a.Enabled ? "已启用" : "已禁用",
+                    ActionLabel = a.Enabled ? "禁用" : "启用",
+                    CustomApply = log => AccountManager.Toggle(a, !a.Enabled, log),
+                })
+                .ToList();
+            return mod;
+        }
+
+        public static ModuleEntry BuildFileAssoc()
+        {
+            var mod = new ModuleEntry { Kind = "FileAssoc", DisplayName = "文件关联", IsNative = true };
+            mod.ReloadFunc = () => FileAssociationManager.List()
+                .Select(f => new ItemEntry(null)
+                {
+                    IsInfo = true,
+                    DisplayName = f.Extension + "  →  " + f.DefaultApp,
+                    Description = "ProgId: " + f.ProgId + (f.UserOverridden ? "（用户已通过“打开方式”覆盖）" : ""),
+                    Group = "文件关联",
+                })
+                .ToList();
+            return mod;
+        }
     }
 }

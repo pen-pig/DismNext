@@ -61,6 +61,9 @@ namespace DismPlusNext.Cli
                 case "tasks": return CmdTasks(rest, yes);
                 case "services": return CmdServices(rest, yes);
                 case "hosts": return CmdHosts(rest, yes);
+                case "drivers": return CmdDrivers(rest, yes);
+                case "accounts": return CmdAccounts(rest, yes);
+                case "fileassoc": return CmdFileAssoc();
                 default: PrintUsage(); return 1;
             }
         }
@@ -469,6 +472,52 @@ namespace DismPlusNext.Cli
             return 2;
         }
 
+        static int CmdDrivers(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = DriverManager.List();
+            if (action == "list")
+            {
+                foreach (var d in list)
+                    Console.WriteLine($"  [{d.ClassName,-10}] {d.PublishedName,-12} {d.ProviderName,-22} v{d.Version}  {d.FileName}");
+                Console.WriteLine($"---- 共 {list.Count} 个第三方驱动 ----");
+                return 0;
+            }
+            string target = rest.ElementAtOrDefault(1) ?? "";
+            var d2 = list.FirstOrDefault(x => x.PublishedName.Equals(target, StringComparison.OrdinalIgnoreCase) || x.FileName.Equals(target, StringComparison.OrdinalIgnoreCase));
+            if (d2 == null) { Console.Error.WriteLine($"未找到驱动：{target}（用 list 查看 PublishedName）"); return 2; }
+            if (!yes) { Console.Error.WriteLine("删除驱动是破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+            return RunMany(DriverManager.Delete(d2, s => Console.WriteLine("    " + s)));
+        }
+
+        static int CmdAccounts(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = AccountManager.List();
+            if (action == "list")
+            {
+                foreach (var a in list)
+                    Console.WriteLine($"  [{(a.Enabled ? "启用" : "禁用")}] {a.Name,-24} {a.Sid}");
+                Console.WriteLine($"---- 共 {list.Count} 个本地账户 ----");
+                return 0;
+            }
+            if (action != "enable" && action != "disable") { Console.Error.WriteLine("动作需为 enable|disable"); return 2; }
+            string target = rest.ElementAtOrDefault(1) ?? "";
+            var a2 = list.FirstOrDefault(x => x.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+            if (a2 == null) { Console.Error.WriteLine($"未找到账户：{target}"); return 2; }
+            if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+            return RunMany(AccountManager.Toggle(a2, action == "enable", s => Console.WriteLine("    " + s)));
+        }
+
+        static int CmdFileAssoc()
+        {
+            Console.WriteLine("文件关联（默认程序）：");
+            foreach (var f in FileAssociationManager.List())
+                Console.WriteLine($"  {f.Extension,-8} → {(f.UserOverridden ? "*" : "")}{f.DefaultApp,-40} [{f.ProgId}]");
+            Console.WriteLine("  * 表示用户已通过“打开方式”覆盖。");
+            return 0;
+        }
+
         static int RunMany(List<ExecResult> res)
         {
             int ok = 0, fail = 0;
@@ -495,6 +544,9 @@ namespace DismPlusNext.Cli
             Console.WriteLine("  tasks   [list|enable|disable|run|delete <名称>] [--yes]");
             Console.WriteLine("  services[list|start|stop|set <Auto|Manual|Disabled> <名称>] [--yes]");
             Console.WriteLine("  hosts   [list|enable|disable|add|remove ...] [--yes]");
+            Console.WriteLine("  drivers [list|delete <oemXX.inf>] [--yes]");
+            Console.WriteLine("  accounts[list|enable|disable <名称>] [--yes]");
+            Console.WriteLine("  fileassoc                      浏览常见扩展名的默认程序");
             Console.WriteLine("  offline wiminfo|list|mount|unmount|service ...");
         }
 
