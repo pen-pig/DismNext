@@ -63,7 +63,7 @@
         <Border DockPanel.Dock="Top" Background="#2E4A2E" Padding="8,4" Visibility="{Binding IsOffline, Converter={x:Static local:Converters.BoolToVisibility}}">
             <TextBlock Foreground="#C8F0C8" FontSize="12">
                 <Run Text="⛁ 离线映像模式："/>
-                <Run Text="{Binding OfflineText}"/>
+                <Run Text="{Binding OfflineText, Mode=OneWay}"/>
                 <Run Text="　（空间回收 / 系统优化 将作用于该映像，完成后请『卸载映像』提交）"/>
             </TextBlock>
         </Border>
