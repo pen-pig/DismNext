@@ -52,6 +52,10 @@ namespace DismPlusNext.Cli
                 case "restore": return CmdRestore(rest, yes);
                 case "images": return CmdImages(rest.FirstOrDefault());
                 case "report": return CmdReport(eng, rest.FirstOrDefault());
+                case "info": return CmdInfo();
+                case "startup": return CmdStartup(rest, yes);
+                case "apps": return CmdApps(rest, yes);
+                case "features": return CmdFeatures(rest, yes);
                 default: PrintUsage(); return 1;
             }
         }
@@ -183,6 +187,78 @@ namespace DismPlusNext.Cli
             return 0;
         }
 
+        static int CmdInfo()
+        {
+            Console.WriteLine("系统信息：");
+            foreach (var r in SystemInfo.Get())
+                Console.WriteLine($"  {r.Label,-14}: {r.Value}");
+            return 0;
+        }
+
+        static int CmdStartup(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = StartupManager.List();
+            if (action == "list")
+            {
+                foreach (var e in list)
+                    Console.WriteLine($"  [{(e.Enabled ? "启用" : "禁用")}] {e.Name,-32} {e.Location}");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            string target = string.Join(" ", rest.Skip(1));
+            return ActOnNamed(target, action, yes,
+                name => list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)),
+                e => StartupManager.Toggle((StartupEntry)e, action == "enable", s => Console.WriteLine("    " + s)));
+        }
+
+        static int CmdApps(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = AppManager.List();
+            if (action == "list")
+            {
+                foreach (var a in list)
+                    Console.WriteLine($"  [{(a.IsUwp ? "UWP" : "程序")}] {a.Name,-40} {(string.IsNullOrEmpty(a.Version) ? "" : "v" + a.Version)}");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            string target = string.Join(" ", rest.Skip(1));
+            return ActOnNamed(target, action, yes,
+                name => list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)),
+                a => AppManager.Uninstall((AppEntry)a, s => Console.WriteLine("    " + s)));
+        }
+
+        static int CmdFeatures(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = FeatureManager.List();
+            if (action == "list")
+            {
+                foreach (var f in list)
+                    Console.WriteLine($"  [{(f.Enabled ? "启用" : "禁用")}] {f.Name}");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            string target = string.Join(" ", rest.Skip(1));
+            return ActOnNamed(target, action, yes,
+                name => list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)),
+                f => FeatureManager.SetState((FeatureEntry)f, action == "enable", s => Console.WriteLine("    " + s)));
+        }
+
+        static int ActOnNamed(string target, string action, bool yes, Func<string, object> find, Func<object, List<ExecResult>> run)
+        {
+            if (string.IsNullOrWhiteSpace(target)) { Console.Error.WriteLine("请指定名称。"); return 2; }
+            var e = find(target);
+            if (e == null) { Console.Error.WriteLine($"未找到：{target}"); return 2; }
+            if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+            int ok = 0, fail = 0;
+            var res = run(e);
+            foreach (var r in res) { if (r.Success) ok++; else fail++; Console.WriteLine($"  [{ (r.Success ? "✓" : "✗") }] {r.Target} {r.Message}"); }
+            Console.WriteLine($"完成：成功 {ok} / 失败 {fail}");
+            return fail > 0 ? 1 : 0;
+        }
+
         static void PrintUsage()
         {
             Console.WriteLine("Dism-Plus-Next CLI");
@@ -193,6 +269,10 @@ namespace DismPlusNext.Cli
             Console.WriteLine("  restore <image.wim> [-i 1] [-d C:\\] --yes");
             Console.WriteLine("  images  <image.wim>");
             Console.WriteLine("  report  [输出md路径]   生成 Win10/11 兼容性报告");
+            Console.WriteLine("  info                        显示系统信息");
+            Console.WriteLine("  startup [list|disable|enable <名称>] [--yes]");
+            Console.WriteLine("  apps    [list|uninstall <名称>] [--yes]");
+            Console.WriteLine("  features[list|enable|disable <名称>] [--yes]");
         }
 
         static string FindRepoRoot()

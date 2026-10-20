@@ -10,6 +10,7 @@ namespace DismPlusNext
     {
         public static readonly IValueConverter StringToVisibility = new StringToVisibilityConverter();
         public static readonly IValueConverter BoolToVisibility = new BoolToVisibilityConverter();
+        public static readonly IValueConverter InverseBoolToVisibility = new InverseBoolToVisibilityConverter();
     }
 
     public class StringToVisibilityConverter : IValueConverter
@@ -30,6 +31,18 @@ namespace DismPlusNext
         {
             bool v = value is bool b && b;
             return v ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    public class InverseBoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool v = value is bool b && b;
+            return v ? Visibility.Collapsed : Visibility.Visible;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

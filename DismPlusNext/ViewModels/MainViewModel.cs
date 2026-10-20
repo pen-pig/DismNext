@@ -42,7 +42,7 @@ namespace DismPlusNext.ViewModels
 
         public bool IsRecoveryModule => SelectedModule?.IsRecovery == true;
         public string ExecuteButtonText => IsRecoveryModule ? "清理选中" : "应用选中";
-        public bool ShowRestoreDefaults => SelectedModule != null && !IsRecoveryModule;
+        public bool ShowRestoreDefaults => SelectedModule?.IsOptimization == true;
 
         public RelayCommand ScanCommand { get; }
         public RelayCommand ExecuteCommand { get; }
@@ -97,6 +97,11 @@ namespace DismPlusNext.ViewModels
                 }
                 Modules.Add(mod);
             }
+            // 原生动态模块（非 Data.xml 规则驱动）
+            Modules.Add(NativeModules.BuildSystemInfo());
+            Modules.Add(NativeModules.BuildStartup());
+            Modules.Add(NativeModules.BuildApps());
+            Modules.Add(NativeModules.BuildFeatures());
         }
 
         private void SwitchLanguage(string pack)
@@ -111,6 +116,18 @@ namespace DismPlusNext.ViewModels
         private void Scan()
         {
             if (SelectedModule == null) return;
+            // 原生动态模块：直接刷新条目列表（信息项只读，启动项/应用/功能重新枚举）
+            if (SelectedModule.IsNative && SelectedModule.ReloadFunc != null)
+            {
+                IsBusy = true;
+                var fresh = SelectedModule.ReloadFunc();
+                SelectedModule.Items.Clear();
+                foreach (var it in fresh) SelectedModule.Items.Add(it);
+                Log($"===== 已刷新：{SelectedModule.DisplayName}（{fresh.Count} 项）=====");
+                StatusText = $"{SelectedModule.DisplayName}：共 {fresh.Count} 项";
+                IsBusy = false;
+                return;
+            }
             IsBusy = true;
             TotalFoundSize = 0;
             long total = 0;
@@ -147,32 +164,59 @@ namespace DismPlusNext.ViewModels
         private void Execute()
         {
             if (SelectedModule == null) return;
-            var targets = SelectedModule.Items.Where(e => e.IsChecked && e.IsApplicable).ToList();
-            if (targets.Count == 0) { Log("未选择任何条目。"); return; }
+            // 原生动态模块：执行每个条目的自定义逻辑（启动项/应用/可选功能）
+            if (SelectedModule.IsNative)
+            {
+                var targets = SelectedModule.Items.Where(e => e.IsChecked && !e.IsInfo).ToList();
+                if (targets.Count == 0) { Log("未选择任何条目。"); return; }
+                string msg = $"将对选中的 {targets.Count} 个{SelectedModule.DisplayName}条目执行操作（{targets[0].ActionLabel}等），确认继续？";
+                if (RequestConfirm != null && !RequestConfirm(msg)) { Log("已取消。"); return; }
+                IsBusy = true;
+                Log($"===== 开始操作：{SelectedModule.DisplayName}（{targets.Count} 项）=====");
+                int ok = 0, fail = 0;
+                foreach (var e in targets)
+                {
+                    Log($"-- {e.DisplayName} --");
+                    try
+                    {
+                        var res = e.CustomApply?.Invoke(s => Log("  " + s)) ?? new List<ExecResult>();
+                        ok += res.Count(r => r.Success);
+                        fail += res.Count(r => !r.Success);
+                        e.Status = $"完成（成功 {res.Count(r => r.Success)} / 失败 {res.Count(r => !r.Success)}）";
+                    }
+                    catch (Exception ex) { fail++; e.Status = "执行异常：" + ex.Message; Log("  异常：" + ex.Message); }
+                }
+                Log($"===== 操作结束：成功 {ok} / 失败 {fail} =====");
+                IsBusy = false;
+                Scan(); // 刷新状态
+                return;
+            }
+            var ruleTargets = SelectedModule.Items.Where(e => e.IsChecked && e.IsApplicable).ToList();
+            if (ruleTargets.Count == 0) { Log("未选择任何条目。"); return; }
 
             string verb = IsRecoveryModule ? "清理" : "应用";
-            string msg = IsRecoveryModule
-                ? $"将对选中的 {targets.Count} 个空间回收项执行实际删除，确认继续？"
-                : $"将对选中的 {targets.Count} 个系统优化项写入注册表/服务，确认继续？";
-            if (RequestConfirm != null && !RequestConfirm(msg)) { Log("已取消。"); return; }
+            string msg2 = IsRecoveryModule
+                ? $"将对选中的 {ruleTargets.Count} 个空间回收项执行实际删除，确认继续？"
+                : $"将对选中的 {ruleTargets.Count} 个系统优化项写入注册表/服务，确认继续？";
+            if (RequestConfirm != null && !RequestConfirm(msg2)) { Log("已取消。"); return; }
 
             IsBusy = true;
-            Log($"===== 开始{verb}：{SelectedModule.DisplayName}（{targets.Count} 项）=====");
-            int ok = 0, fail = 0;
-            foreach (var e in targets)
+            Log($"===== 开始{verb}：{SelectedModule.DisplayName}（{ruleTargets.Count} 项）=====");
+            int ok2 = 0, fail2 = 0;
+            foreach (var e in ruleTargets)
             {
                 Log($"-- {e.DisplayName} --");
                 try
                 {
                     var opt = new ApplyOptions { IsOn = e.IsChecked, ComboIndex = e.ComboIndex };
                     var res = _engine.ApplyItem(e.Rule, s => Log("  " + s), opt);
-                    ok += res.Count(r => r.Success);
-                    fail += res.Count(r => !r.Success);
+                    ok2 += res.Count(r => r.Success);
+                    fail2 += res.Count(r => !r.Success);
                     e.Status = $"完成（成功 {res.Count(r => r.Success)} / 失败 {res.Count(r => !r.Success)}）";
                 }
-                catch (Exception ex) { fail++; e.Status = "执行异常：" + ex.Message; Log("  异常：" + ex.Message); }
+                catch (Exception ex) { fail2++; e.Status = "执行异常：" + ex.Message; Log("  异常：" + ex.Message); }
             }
-            Log($"===== {verb}结束：成功 {ok} / 失败 {fail} =====");
+            Log($"===== {verb}结束：成功 {ok2} / 失败 {fail2} =====");
             IsBusy = false;
             // 重新扫描以刷新状态
             Scan();

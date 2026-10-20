@@ -25,10 +25,13 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <CheckBox Grid.Column="0" IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding IsApplicable}" VerticalAlignment="Center"/>
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding IsApplicable}" VerticalAlignment="Center"
+                          Visibility="{Binding IsInfo, Converter={x:Static local:Converters.InverseBoolToVisibility}}"/>
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding Status}" Foreground="{StaticResource FgMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding State, StringFormat='状态：{0}'}" Foreground="{StaticResource AccentBrush}" FontSize="11" TextWrapping="Wrap"
+                               Visibility="{Binding State, Converter={x:Static local:Converters.StringToVisibility}}"/>
                     <ComboBox ItemsSource="{Binding OptionNames}" SelectedIndex="{Binding ComboIndex, Mode=TwoWay}"
                               Visibility="{Binding IsCombo, Converter={x:Static local:Converters.BoolToVisibility}}"
                               Margin="0,3,0,0" Width="220" HorizontalAlignment="Left" FontSize="12"/>
@@ -102,6 +105,8 @@
                         <TextBlock Text="{Binding SelectedItem.DisplayName, TargetNullValue='未选择条目'}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding SelectedItem.Group, StringFormat='分组：{0}'}" Foreground="{StaticResource FgMutedBrush}" Margin="0,4"/>
                         <TextBlock Text="{Binding SelectedItem.Description}" TextWrapping="Wrap" Margin="0,8"/>
+                        <TextBlock Text="{Binding SelectedItem.State, StringFormat='当前状态：{0}'}" Foreground="{StaticResource AccentBrush}"
+                                   Visibility="{Binding SelectedItem.State, Converter={x:Static local:Converters.StringToVisibility}}" Margin="0,2"/>
 
                         <Border Background="{StaticResource WarnBgBrush}" BorderBrush="{StaticResource WarnFgBrush}" BorderThickness="1" Padding="6" Margin="0,6"
                                 Visibility="{Binding SelectedItem.Warning, Converter={x:Static local:Converters.StringToVisibility}}">

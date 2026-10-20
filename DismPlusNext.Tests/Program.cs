@@ -5,6 +5,7 @@ using System.Linq;
 using DismPlusNext;
 using DismPlusNext.Engine;
 using DismPlusNext.Models;
+using DismPlusNext.ViewModels;
 
 class Program
 {
@@ -52,6 +53,7 @@ class Program
 
         RunApplyOptionsTests();
         RunCompatTests();
+        RunNativeModuleTests();
         Console.WriteLine("\n无头逻辑验证完成。");
     }
 
@@ -123,6 +125,38 @@ class Program
         var report = eng.GetCompatReport();
         Check("兼容性报告生成成功", report != null && report.DetectedVersion == ver.ToString(), ref pass, ref fail);
         Check("报告检测版本与 RtlGetVersion 一致", report.DetectedVersion == ver.ToString(), ref pass, ref fail);
+
+        Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
+        if (fail > 0) Environment.Exit(1);
+    }
+
+    /// <summary>回归测试：原生动态模块(系统信息/启动项/应用)可正常采集且类型正确。</summary>
+    static void RunNativeModuleTests()
+    {
+        Console.WriteLine("\n===== 原生模块回归测试 =====");
+        int pass = 0, fail = 0;
+
+        var info = SystemInfo.Get();
+        Check($"系统信息采集到行 ({info.Count})", info.Count > 0, ref pass, ref fail);
+        Check("系统信息含\"操作系统\"行", info.Any(r => r.Label == "操作系统"), ref pass, ref fail);
+
+        var starts = StartupManager.List();
+        Check($"启动项枚举成功 ({starts.Count})", starts != null, ref pass, ref fail);
+        Check("启动项分类正确", starts.All(s => s.Enabled == true || s.Enabled == false), ref pass, ref fail);
+
+        var apps = AppManager.List();
+        Check($"应用枚举成功 ({apps.Count})", apps != null, ref pass, ref fail);
+
+        // 功能枚举需管理员；此处仅验证不抛异常
+        var feats = FeatureManager.List();
+        Check($"功能枚举不抛异常 ({feats.Count})", feats != null, ref pass, ref fail);
+
+        // 原生模块包装器可生成带条目的模块
+        var mod = NativeModules.BuildStartup();
+        var items = mod.ReloadFunc();
+        Check("BuildStartup 生成模块条目", mod.IsNative && items.Count == starts.Count, ref pass, ref fail);
+        var infoMod = NativeModules.BuildSystemInfo();
+        Check("BuildSystemInfo 条目均为只读信息", infoMod.ReloadFunc().All(i => i.IsInfo), ref pass, ref fail);
 
         Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
         if (fail > 0) Environment.Exit(1);
