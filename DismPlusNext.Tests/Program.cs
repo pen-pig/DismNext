@@ -55,6 +55,7 @@ class Program
         RunCompatTests();
         RunNativeModuleTests();
         RunOfflineTests();
+        RunNewModulesTests();
         Console.WriteLine("\n无头逻辑验证完成。");
     }
 
@@ -201,5 +202,57 @@ class Program
     {
         Console.WriteLine($"  [{(ok ? "PASS" : "FAIL")}] {name}");
         if (ok) pass++; else fail++;
+    }
+
+    /// <summary>回归测试：更新管理/计划任务/服务/Hosts 模块与 Win11 专属优化项可正确解析与枚举。</summary>
+    static void RunNewModulesTests()
+    {
+        Console.WriteLine("\n===== 新增模块回归测试 =====");
+        int pass = 0, fail = 0;
+
+        // 四个原生模块枚举不抛异常且返回集合
+        var ups = UpdateManager.List();
+        Check($"更新管理枚举成功 ({ups.Count})", ups != null, ref pass, ref fail);
+        var tks = TaskManager.List();
+        Check($"计划任务枚举成功 ({tks.Count})", tks != null, ref pass, ref fail);
+        var svc = ServicesManager.List();
+        Check($"服务枚举成功 ({svc.Count})", svc != null && svc.All(s => !string.IsNullOrEmpty(s.Name)), ref pass, ref fail);
+        var hosts = HostsManager.Parse();
+        Check($"Hosts 解析成功 ({hosts.Count(x => !x.IsBlank)})", hosts != null, ref pass, ref fail);
+
+        // 原生模块包装器可生成对应模块
+        var um = NativeModules.BuildUpdates();
+        Check("BuildUpdates 为原生模块", um.IsNative && um.ReloadFunc().Count == ups.Count, ref pass, ref fail);
+        var tm = NativeModules.BuildTasks();
+        Check("BuildTasks 为原生模块", tm.IsNative, ref pass, ref fail);
+        var sm = NativeModules.BuildServices();
+        Check("BuildServices 为原生模块", sm.IsNative, ref pass, ref fail);
+        var hm = NativeModules.BuildHosts();
+        Check("BuildHosts 为原生模块", hm.IsNative, ref pass, ref fail);
+
+        // Win11 专属优化项已写入 Data.xml 并被加载器解析为开关型
+        string dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 7; i++)
+        {
+            if (File.Exists(Path.Combine(dir, "Data.xml"))) break;
+            var p = Directory.GetParent(dir);
+            if (p == null) break;
+            dir = p.FullName;
+        }
+        var eng = new CleanEngine();
+        eng.Initialize(dir);
+        var win11 = eng.Data.Collections
+            .Where(c => c.Kind == "SystemOptimization")
+            .SelectMany(c => c.Items)
+            .Where(it => it.DisplayName.Contains("小组件") || it.DisplayName.Contains("开始菜单") || it.DisplayName.Contains("Spotlight") || it.DisplayName.Contains("此电脑") || it.DisplayName.Contains("搜索按钮"))
+            .ToList();
+        Check($"Win11 专属优化项已解析 ({win11.Count})", win11.Count >= 5, ref pass, ref fail);
+        Check("Win11 优化项为开关型(True 分支含动作)", win11.All(it => it.SystemTrueActivate.Count > 0), ref pass, ref fail);
+        // 本机为 Win11 (>=10.0.22000)，这些项应判定适用
+        int win11Applicable = win11.Count(it => eng.IsApplicable(it));
+        Check($"Win11 项在当前系统适用 ({win11Applicable}/{win11.Count})", win11Applicable > 0, ref pass, ref fail);
+
+        Console.WriteLine($"结果: PASS={pass} FAIL={fail}");
+        if (fail > 0) Environment.Exit(1);
     }
 }

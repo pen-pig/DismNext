@@ -7770,6 +7770,208 @@
         </System>
       </Item>
     </Group>
+
+    <Group Name="#Win11 专属优化">
+      <Item Type="CheckBox" Name="#禁用小组件面板（Widgets）">
+        <Applicable>
+          <OSVersion Compare=">=">10.0.22000</OSVersion>
+        </Applicable>
+        <Current>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Current>
+        <Default>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="TaskbarDa" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Default>
+      </Item>
+
+      <Item Type="CheckBox" Name="#禁用开始菜单“推荐”内容">
+        <Applicable>
+          <OSVersion Compare=">=">10.0.22000</OSVersion>
+        </Applicable>
+        <Current>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Current>
+        <Default>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="Start_IrisRecommendations" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Default>
+      </Item>
+
+      <Item Type="CheckBox" Name="#关闭 Windows Spotlight 内容建议">
+        <Applicable>
+          <OSVersion Compare=">=">10.0.22000</OSVersion>
+        </Applicable>
+        <Current>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Current>
+        <Default>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" Value="SubscribedContent-338897Enabled" Type="REG_DWORD" Data="1"/>
+            </Activate>
+          </False>
+        </Default>
+      </Item>
+
+      <Item Type="CheckBox" Name="#文件资源管理器默认打开此电脑">
+        <Applicable>
+          <OSVersion Compare=">=">10.0.22000</OSVersion>
+        </Applicable>
+        <Current>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="2"/>
+            </Activate>
+          </False>
+        </Current>
+        <Default>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" Value="LaunchTo" Type="REG_DWORD" Data="2"/>
+            </Activate>
+          </False>
+        </Default>
+      </Item>
+
+      <Item Type="CheckBox" Name="#隐藏任务栏搜索按钮">
+        <Applicable>
+          <OSVersion Compare=">=">10.0.22000</OSVersion>
+        </Applicable>
+        <Current>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="2"/>
+            </Activate>
+          </False>
+        </Current>
+        <Default>
+          <State>
+            <Applicable>
+              <RegExist Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="0"/>
+            </Applicable>
+          </State>
+          <True>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="0"/>
+            </Activate>
+          </True>
+          <False>
+            <Activate>
+              <RegWrite Key="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Search" Value="SearchboxTaskbarMode" Type="REG_DWORD" Data="2"/>
+            </Activate>
+          </False>
+        </Default>
+      </Item>
+    </Group>
   </SystemOptimization>
   <ESDDecryptKey>
     <!--Win8.1-->

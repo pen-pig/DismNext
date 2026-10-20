@@ -57,6 +57,10 @@ namespace DismPlusNext.Cli
                 case "apps": return CmdApps(rest, yes);
                 case "features": return CmdFeatures(rest, yes);
                 case "offline": return CmdOffline(eng, rest, yes);
+                case "update": return CmdUpdate(rest, yes);
+                case "tasks": return CmdTasks(rest, yes);
+                case "services": return CmdServices(rest, yes);
+                case "hosts": return CmdHosts(rest, yes);
                 default: PrintUsage(); return 1;
             }
         }
@@ -348,6 +352,131 @@ namespace DismPlusNext.Cli
             }
         }
 
+        static int CmdUpdate(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = UpdateManager.List();
+            if (action == "list")
+            {
+                foreach (var u in list)
+                    Console.WriteLine($"  {u.Kb,-12} {u.Title,-28} {u.InstalledOn}");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            string kb = rest.ElementAtOrDefault(1) ?? "";
+            var u2 = list.FirstOrDefault(x => x.Kb.Equals(kb, StringComparison.OrdinalIgnoreCase) || x.Title.Equals(kb, StringComparison.OrdinalIgnoreCase));
+            if (u2 == null) { Console.Error.WriteLine($"未找到更新：{kb}（用 list 查看 KB 编号）"); return 2; }
+            if (!yes) { Console.Error.WriteLine("卸载更新是破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+            int ok = 0, fail = 0;
+            foreach (var r in UpdateManager.Uninstall(u2, s => Console.WriteLine("    " + s)))
+            { if (r.Success) ok++; else fail++; Console.WriteLine($"  [{(r.Success ? "✓" : "✗")}] {r.Target} {r.Message}"); }
+            Console.WriteLine($"完成：成功 {ok} / 失败 {fail}");
+            return fail > 0 ? 1 : 0;
+        }
+
+        static int CmdTasks(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = TaskManager.List();
+            if (action == "list")
+            {
+                foreach (var t in list)
+                    Console.WriteLine($"  [{(t.Enabled ? "启用" : "禁用")}] {t.Name,-36} {t.State,-10} 下次:{t.NextRun}");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            if (action == "run")
+            {
+                string name = rest.ElementAtOrDefault(1) ?? "";
+                var t = list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (t == null) { Console.Error.WriteLine($"未找到：{name}"); return 2; }
+                return RunMany(TaskManager.Run(t, s => Console.WriteLine("    " + s)));
+            }
+            if (action != "enable" && action != "disable" && action != "delete") { Console.Error.WriteLine("动作需为 enable|disable|run|delete"); return 2; }
+            string target = rest.ElementAtOrDefault(1) ?? "";
+            var tt = list.FirstOrDefault(x => x.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+            if (tt == null) { Console.Error.WriteLine($"未找到：{target}"); return 2; }
+            if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+            var res = action == "enable" ? TaskManager.Enable(tt, s => Console.WriteLine("    " + s))
+                      : action == "disable" ? TaskManager.Disable(tt, s => Console.WriteLine("    " + s))
+                      : TaskManager.Delete(tt, s => Console.WriteLine("    " + s));
+            return RunMany(res);
+        }
+
+        static int CmdServices(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            var list = ServicesManager.List();
+            if (action == "list")
+            {
+                foreach (var s in list)
+                    Console.WriteLine($"  [{s.Status,-8}] {s.DisplayName,-34} 启动={s.StartType}  ({s.Name})");
+                Console.WriteLine($"---- 共 {list.Count} 项 ----");
+                return 0;
+            }
+            string name = rest.ElementAtOrDefault(1) ?? "";
+            var svc = list.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || x.DisplayName.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (svc == null) { Console.Error.WriteLine($"未找到服务：{name}"); return 2; }
+            if (action == "start" || action == "stop")
+            {
+                if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                var res = action == "start" ? ServicesManager.Start(svc, s => Console.WriteLine("    " + s)) : ServicesManager.Stop(svc, s => Console.WriteLine("    " + s));
+                return RunMany(res);
+            }
+            if (action == "set")
+            {
+                string st = rest.ElementAtOrDefault(2) ?? "";
+                if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                return RunMany(ServicesManager.SetStartType(svc, st, s => Console.WriteLine("    " + s)));
+            }
+            Console.Error.WriteLine("动作需为 start|stop|set <Auto|Manual|Disabled>");
+            return 2;
+        }
+
+        static int CmdHosts(List<string> rest, bool yes)
+        {
+            string action = rest.FirstOrDefault()?.ToLowerInvariant() ?? "list";
+            if (action == "list")
+            {
+                foreach (var h in HostsManager.Parse().Where(x => !x.IsBlank))
+                    Console.WriteLine($"  [{(h.Enabled ? "生效" : "禁用")}] {h.Ip,-16} {h.Hostname}{(string.IsNullOrEmpty(h.Comment) ? "" : "  # " + h.Comment)}");
+                return 0;
+            }
+            if (action == "enable" || action == "disable")
+            {
+                string host = rest.ElementAtOrDefault(1) ?? "";
+                var all = HostsManager.Parse().Where(x => !x.IsBlank).ToList();
+                var h = all.FirstOrDefault(x => x.Hostname.Equals(host, StringComparison.OrdinalIgnoreCase));
+                if (h == null) { Console.Error.WriteLine($"未找到 hosts 记录：{host}"); return 2; }
+                if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                return RunMany(HostsManager.SetEnabled(h, action == "enable", s => Console.WriteLine("    " + s)));
+            }
+            if (action == "add")
+            {
+                string ip = rest.ElementAtOrDefault(1) ?? "", host = rest.ElementAtOrDefault(2) ?? "";
+                if (string.IsNullOrEmpty(ip) || string.IsNullOrEmpty(host)) { Console.Error.WriteLine("用法: hosts add <ip> <hostname>"); return 2; }
+                if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                return RunMany(HostsManager.Add(ip, host, s => Console.WriteLine("    " + s)));
+            }
+            if (action == "remove")
+            {
+                string ip = rest.ElementAtOrDefault(1) ?? "", host = rest.ElementAtOrDefault(2) ?? "";
+                if (string.IsNullOrEmpty(ip) || string.IsNullOrEmpty(host)) { Console.Error.WriteLine("用法: hosts remove <ip> <hostname>"); return 2; }
+                if (!yes) { Console.Error.WriteLine("破坏性操作，请加 --yes 确认。已取消。"); return 3; }
+                return RunMany(HostsManager.Remove(ip, host, s => Console.WriteLine("    " + s)));
+            }
+            Console.Error.WriteLine("动作需为 list|enable|disable|add|remove");
+            return 2;
+        }
+
+        static int RunMany(List<ExecResult> res)
+        {
+            int ok = 0, fail = 0;
+            foreach (var r in res) { if (r.Success) ok++; else fail++; Console.WriteLine($"  [{(r.Success ? "✓" : "✗")}] {r.Target} {r.Message}"); }
+            Console.WriteLine($"完成：成功 {ok} / 失败 {fail}");
+            return fail > 0 ? 1 : 0;
+        }
+
         static void PrintUsage()
         {
             Console.WriteLine("Dism-Plus-Next CLI");
@@ -362,6 +491,10 @@ namespace DismPlusNext.Cli
             Console.WriteLine("  startup [list|disable|enable <名称>] [--yes]");
             Console.WriteLine("  apps    [list|uninstall <名称>] [--yes]");
             Console.WriteLine("  features[list|enable|disable <名称>] [--yes]");
+            Console.WriteLine("  update  [list|uninstall <KB>] [--yes]");
+            Console.WriteLine("  tasks   [list|enable|disable|run|delete <名称>] [--yes]");
+            Console.WriteLine("  services[list|start|stop|set <Auto|Manual|Disabled> <名称>] [--yes]");
+            Console.WriteLine("  hosts   [list|enable|disable|add|remove ...] [--yes]");
             Console.WriteLine("  offline wiminfo|list|mount|unmount|service ...");
         }
 

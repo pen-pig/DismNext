@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using Microsoft.Win32;
 
 namespace DismPlusNext.Engine
@@ -114,6 +116,31 @@ namespace DismPlusNext.Engine
                 case "!=": return c != 0;
                 default: return false;
             }
+        }
+
+        /// <summary>运行一段 PowerShell 脚本并返回 (成功, 全部输出)。用于封装 wusa / DISM / Get-* 等系统命令。</summary>
+        public static (bool ok, string output) RunPowerShell(string script, int timeoutMs = 180000)
+        {
+            try
+            {
+                string tmp = Path.Combine(Path.GetTempPath(), "dismnext_ps_" + Guid.NewGuid().ToString("N") + ".ps1");
+                File.WriteAllText(tmp, script, Encoding.UTF8);
+                var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -File \"{tmp}\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                using var p = Process.Start(psi);
+                if (p == null) return (false, "无法启动 PowerShell");
+                string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+                bool exited = p.WaitForExit(timeoutMs);
+                if (!exited) { try { p.Kill(); } catch { } }
+                try { File.Delete(tmp); } catch { }
+                return (p.ExitCode == 0 || exited, o);
+            }
+            catch (Exception ex) { return (false, ex.Message); }
         }
     }
 }

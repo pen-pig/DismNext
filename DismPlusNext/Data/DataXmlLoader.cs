@@ -132,6 +132,17 @@ namespace DismPlusNext.Data
                         item.DefaultActivate = dacts;
                 }
             }
+            // CheckBox 开关型：<Current>/<True>(开启动作)、<Current>/<False>(关闭动作)，<Default>/<True>、<Default>/<False> 为推荐默认
+            if (current != null)
+            {
+                var ct = current.Element("True"); if (ct != null) item.SystemTrueActivate = ParseActivate(ct.Element("Activate"));
+                var cf = current.Element("False"); if (cf != null) item.SystemFalseActivate = ParseActivate(cf.Element("Activate"));
+            }
+            if (def != null)
+            {
+                var dt = def.Element("True"); if (dt != null && item.DefaultActivate.Count == 0) item.DefaultActivate = ParseActivate(dt.Element("Activate"));
+                var df = def.Element("False"); if (df != null && item.DefaultActivate.Count == 0) item.DefaultActivate = ParseActivate(df.Element("Activate"));
+            }
             // 若没有 Default，则用 Current 首个选项的动作为默认
             if (item.DefaultActivate.Count == 0 && item.Options.Count > 0)
                 item.DefaultActivate = item.Options[0].Activate;

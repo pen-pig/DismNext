@@ -139,6 +139,10 @@ namespace DismPlusNext.ViewModels
             Modules.Add(NativeModules.BuildStartup());
             Modules.Add(NativeModules.BuildApps());
             Modules.Add(NativeModules.BuildFeatures());
+            Modules.Add(NativeModules.BuildUpdates());
+            Modules.Add(NativeModules.BuildTasks());
+            Modules.Add(NativeModules.BuildServices());
+            Modules.Add(NativeModules.BuildHosts());
         }
 
         private void SwitchLanguage(string pack)
