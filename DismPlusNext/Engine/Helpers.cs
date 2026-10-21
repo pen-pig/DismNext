@@ -123,10 +123,11 @@ namespace DismPlusNext.Engine
         {
             try
             {
-                string tmp = Path.Combine(Path.GetTempPath(), "dismnext_ps_" + Guid.NewGuid().ToString("N") + ".ps1");
-                File.WriteAllText(tmp, script, Encoding.UTF8);
-                var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -File \"{tmp}\"")
+                // 经标准输入喂脚本：不落盘临时 .ps1、不用 -ExecutionPolicy Bypass / -EncodedCommand
+                // ——这几个是杀软行为引擎最典型的恶意特征。-Command - 直接从 stdin 读命令，不受执行策略限制。
+                var psi = new ProcessStartInfo("powershell.exe", "-NoProfile -Command -")
                 {
+                    RedirectStandardInput = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -134,10 +135,11 @@ namespace DismPlusNext.Engine
                 };
                 using var p = Process.Start(psi);
                 if (p == null) return (false, "无法启动 PowerShell");
+                p.StandardInput.Write(script);
+                p.StandardInput.Close();
                 string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
                 bool exited = p.WaitForExit(timeoutMs);
                 if (!exited) { try { p.Kill(); } catch { } }
-                try { File.Delete(tmp); } catch { }
                 return (p.ExitCode == 0 || exited, o);
             }
             catch (Exception ex) { return (false, ex.Message); }

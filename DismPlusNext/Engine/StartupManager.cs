@@ -136,10 +136,9 @@ namespace DismPlusNext.Engine
         {
             try
             {
-                string tmp = Path.Combine(Path.GetTempPath(), "dismnext_st_" + Guid.NewGuid().ToString("N") + ".ps1");
-                File.WriteAllText(tmp, script, Encoding.UTF8);
-                var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -File \"{tmp}\"")
+                var psi = new ProcessStartInfo("powershell.exe", "-NoProfile -Command -")
                 {
+                    RedirectStandardInput = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -147,9 +146,10 @@ namespace DismPlusNext.Engine
                 };
                 using var p = Process.Start(psi);
                 if (p == null) return (false, "无法启动 PowerShell");
+                p.StandardInput.Write(script);
+                p.StandardInput.Close();
                 string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
                 p.WaitForExit(120000);
-                try { File.Delete(tmp); } catch { }
                 return (p.ExitCode == 0, o);
             }
             catch (Exception ex) { return (false, ex.Message); }

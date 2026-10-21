@@ -21,27 +21,36 @@ namespace DismPlusNext.Engine
         public static List<UpdateEntry> List()
         {
             var list = new List<UpdateEntry>();
-            // Get-HotFix 返回已安装的快速修补程序（含 KB 号、安装日期、描述）
-            const string ps = "Get-HotFix | ForEach-Object { " +
-                "$kb = ($_.HotFixID -replace 'KB',''); " +
-                "\"[U]|$($_.HotFixID)|$(($_.Description -replace '\\|','/') -replace '[\\r\\n]',' ')|$($_.InstalledOn.ToString('yyyy-MM-dd'))|$kb\" }";
-            var (ok, text) = Helpers.RunPowerShell(ps);
-            if (!ok) return list;
-            foreach (var raw in text.Split('\n'))
+            // 原生读取注册表 HotFix 子键（等价 Get-HotFix 的数据源），不起 powershell 子进程。
+            try
             {
-                var line = raw.Trim();
-                if (!line.StartsWith("[U]|")) continue;
-                var p = line.Split('|');
-                if (p.Length < 5) continue;
-                list.Add(new UpdateEntry
+                using var baseKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\HotFix", false);
+                if (baseKey == null) return list;
+                foreach (var kb in baseKey.GetSubKeyNames())
                 {
-                    Kb = p[4],
-                    Title = p[1],
-                    Description = p[2],
-                    InstalledOn = p[3],
-                    Type = "HotFix",
-                });
+                    try
+                    {
+                        using var k = baseKey.OpenSubKey(kb, false);
+                        if (k == null) continue;
+                        object io = k.GetValue("InstalledOn");
+                        string installed = io is byte[] b && b.Length > 0
+                            ? Encoding.Unicode.GetString(b).TrimEnd('\0')
+                            : (io as string ?? "");
+                        string desc = (k.GetValue("Fix Description") as string) ?? "";
+                        list.Add(new UpdateEntry
+                        {
+                            Kb = kb.StartsWith("KB", StringComparison.OrdinalIgnoreCase) ? kb.Substring(2) : kb,
+                            Title = kb,
+                            Description = desc,
+                            InstalledOn = installed,
+                            Type = "HotFix",
+                        });
+                    }
+                    catch { }
+                }
             }
+            catch { }
             return list;
         }
 

@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 云端 runner 无本地杀软，不会被实时防护锁 DLL（规避本地 MC2000）。
+      - name: Build WPF (Release)
+        run: dotnet build DismPlusNext/DismPlusNext.csproj -c Release --nologo
+
+      # CLI 与引擎回归测试同样在云端验证（本地被卡巴斯基锁 DLL 时这步是唯一可信验证）。
+      - name: Build CLI (Release)
+        run: dotnet build DismPlusNext.Cli/DismPlusNext.Cli.csproj -c Release --nologo
+
+      - name: Run regression tests
+        run: dotnet run --project DismPlusNext.Tests -c Release --nologo
+
+      - name: Collect output
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item -Recurse -Force DismPlusNext/bin/Release/net10.0-windows/* artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DismPlusNext
+          path: artifact/**
+
+      # 说明：要去掉“未签名被报毒”，在下方接 SignPath（开源免费）签名这一步，
+      # 对本 job 产出的 DismPlusNext.dll / .exe 做 Authenticode 签名后再发 Release。
