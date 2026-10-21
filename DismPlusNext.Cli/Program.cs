@@ -11,7 +11,7 @@ using DismPlusNext.ViewModels;
 namespace DismPlusNext.Cli
 {
     /// <summary>
-    /// Dism-Plus-Next 命令行界面。
+    /// DismNext 命令行界面。
     /// 用法：
     ///   DismPlusNext.Cli list
     ///   DismPlusNext.Cli scan  &lt;CleanCollection4|SystemOptimization&gt; [-l zh-Hans.xml]
@@ -171,7 +171,7 @@ namespace DismPlusNext.Cli
             if (string.IsNullOrEmpty(outPath))
                 outPath = $"CompatReport_{r.DetectedVersion.Replace('.', '_')}.md";
             var sb = new StringBuilder();
-            sb.AppendLine("# Dism-Plus-Next 系统兼容性报告");
+            sb.AppendLine("# DismNext 系统兼容性报告");
             sb.AppendLine();
             sb.AppendLine($"- 检测时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             sb.AppendLine($"- 真实 OS 版本：**{r.DetectedVersion}**（RtlGetVersion）");
@@ -528,7 +528,7 @@ namespace DismPlusNext.Cli
 
         static void PrintUsage()
         {
-            Console.WriteLine("Dism-Plus-Next CLI");
+            Console.WriteLine("DismNext CLI");
             Console.WriteLine("  list");
             Console.WriteLine("  scan  <CleanCollection4|SystemOptimization> [-l <语言包.xml>]");
             Console.WriteLine("  apply <模块> [-l <语言包.xml>] --yes");

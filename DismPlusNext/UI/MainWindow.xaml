@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:DismPlusNext.ViewModels"
         xmlns:local="clr-namespace:DismPlusNext"
-        Title="Dism-Plus-Next" Height="720" Width="1100" FontSize="13">
+        Title="DismNext" Height="720" Width="1100" FontSize="13">
     <Window.Resources>
         <CollectionViewSource x:Key="GroupedItems" Source="{Binding SelectedModule.Items}">
             <CollectionViewSource.GroupDescriptions>
@@ -45,7 +45,7 @@
         <!-- 顶部菜单栏 -->
         <Border DockPanel.Dock="Top" Background="{StaticResource BgPanelBrush}" Padding="8,6">
             <DockPanel>
-                <TextBlock Text="Dism-Plus-Next" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}"/>
+                <TextBlock Text="DismNext" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}"/>
                 <TextBlock Text="开源系统维护工具" Foreground="{StaticResource FgMutedBrush}" VerticalAlignment="Center" Margin="8,0"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
                     <TextBlock Text="语言：" VerticalAlignment="Center" Foreground="{StaticResource FgMutedBrush}"/>

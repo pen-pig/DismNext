@@ -12,7 +12,7 @@ namespace DismPlusNext.UI
             InitializeComponent();
             DataContext = _vm;
             _vm.RequestConfirm = msg =>
-                MessageBox.Show(msg, "Dism-Plus-Next", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+                MessageBox.Show(msg, "DismNext", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
             Loaded += (s, e) => _vm.Init();
         }
 

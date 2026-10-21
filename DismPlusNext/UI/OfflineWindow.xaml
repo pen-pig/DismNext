@@ -11,7 +11,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="离线映像服务（Dism++ 招牌功能）" FontSize="16" FontWeight="Bold" Foreground="{StaticResource FgTextBrush}" Margin="0,0,0,8"/>
+        <TextBlock Grid.Row="0" Text="离线映像服务（DismNext 招牌功能）" FontSize="16" FontWeight="Bold" Foreground="{StaticResource FgTextBrush}" Margin="0,0,0,8"/>
         <TextBlock Grid.Row="0" Text="挂载 WIM/ESD 后，空间回收与系统优化将直接作用于映像（需管理员）。" FontSize="11" Foreground="{StaticResource FgMutedBrush}" HorizontalAlignment="Right"/>
 
         <Grid Grid.Row="1" Margin="0,4">

@@ -1,7 +1,7 @@
 <Window x:Class="DismPlusNext.UI.BackupWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="备份还原 - Dism-Plus-Next" Height="580" Width="640" FontSize="13"
+        Title="备份还原 - DismNext" Height="580" Width="640" FontSize="13"
         WindowStartupLocation="CenterOwner" Background="{StaticResource BgAppBrush}">
     <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top" Text="系统备份与还原（基于 DISM，需管理员权限）" FontSize="15" FontWeight="Bold" Margin="0,0,0,10" Foreground="{StaticResource FgTextBrush}"/>

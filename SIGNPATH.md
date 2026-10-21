@@ -1,5 +1,8 @@
 # SignPath 开源免费代码签名
 
+- 项目名（申请表填）：**DismNext**
+- 仓库地址（申请表填）：<https://github.com/pen-pig/DismPlusNext>
+
 本仓库通过 GitHub Actions + [SignPath](https://signpath.io) 对构建产物做 Authenticode 代码签名，
 解决“本地构建的未签名 exe/dll 被卡巴斯基等杀软误报/隔离”的问题。
 
