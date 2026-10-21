@@ -1,4 +1,4 @@
-name: Build
+name: Build & Sign
 
 on:
   push:
@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch:
+
+# SignPath action 读取 artifact / 下载签名结果所需（公开仓库装了 SignPath App 时可省）
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   build:
@@ -18,11 +23,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # 云端 runner 无本地杀软，不会被实时防护锁 DLL（规避本地 MC2000）。
+      # 云端 runner 无本地杀软，不会被实时防护锁 DLL（规避本地卡巴斯基 MC2000）。
       - name: Build WPF (Release)
         run: dotnet build DismPlusNext/DismPlusNext.csproj -c Release --nologo
 
-      # CLI 与引擎回归测试同样在云端验证（本地被卡巴斯基锁 DLL 时这步是唯一可信验证）。
+      # CLI 与引擎回归测试同样在云端验证（本地被锁 DLL 时这步是唯一可信验证）。
       - name: Build CLI (Release)
         run: dotnet build DismPlusNext.Cli/DismPlusNext.Cli.csproj -c Release --nologo
 
@@ -35,11 +40,38 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item -Recurse -Force DismPlusNext/bin/Release/net10.0-windows/* artifact/
 
-      - name: Upload artifact
+      - name: Upload unsigned artifact
+        id: upload-unsigned
         uses: actions/upload-artifact@v4
         with:
-          name: DismPlusNext
+          name: DismPlusNext-unsigned
           path: artifact/**
 
-      # 说明：要去掉“未签名被报毒”，在下方接 SignPath（开源免费）签名这一步，
-      # 对本 job 产出的 DismPlusNext.dll / .exe 做 Authenticode 签名后再发 Release。
+      # ===== 代码签名（SignPath 开源免费证书）=====
+      # 未配置 secret 时自动跳过，不影响构建；配置后自动签名并产出 DismPlusNext-signed。
+      # 需要：仓库 Settings > Secrets 添加 SIGNPATH_API_TOKEN / SIGNPATH_ORGANIZATION_ID /
+      #       SIGNPATH_PROJECT_SLUG / SIGNPATH_SIGNING_POLICY_SLUG（申请见仓库 README）。
+      - name: Check signing configured
+        id: signcheck
+        shell: pwsh
+        run: |
+          if ("${{ secrets.SIGNPATH_API_TOKEN }}" -ne "") { "configured=true" >> $env:GITHUB_OUTPUT } else { "configured=false" >> $env:GITHUB_OUTPUT }
+
+      - name: Sign with SignPath
+        if: steps.signcheck.outputs.configured == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ secrets.SIGNPATH_PROJECT_SLUG }}'
+          signing-policy-slug: '${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}'
+          github-artifact-id: '${{ steps.upload-unsigned.outputs.artifact-id }}'
+          wait-for-completion: true
+          output-artifact-directory: 'signed'
+
+      - name: Upload signed artifact
+        if: steps.signcheck.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DismPlusNext-signed
+          path: signed/**
